@@ -1,0 +1,18 @@
+node_modules/
+
+# SDCC（C 編譯器）已經用不到了，17MB 不進版本庫
+tools/sdcc/
+
+# 打包產物，每次 build 都會重生
+dist/
+web/bundled.html
+tools/board-preview.png
+tools/board-preview.svg
+tools/cmp.png
+tools/cmp.svg
+
+# 課本與原廠手冊有版權，不要上傳（本機保留即可）
+docs/*.pdf
+
+__pycache__/
+*.pyc
