@@ -1,8 +1,9 @@
 // 把標準 MIDI 檔轉成這個模擬器用的 A51 樂譜（單音、方波蜂鳴器）。
 //
-// 用法：node tools/mid2asm.mjs <輸入.mid> [輸出.asm] [--oct=N] [--max=秒]
-//   --oct=N   整體移調 N 個八度（蜂鳴器在 2~4kHz 最有效率，低音會很小聲）
-//   --max=秒  只取前面幾秒
+// 用法：node tools/mid2asm.mjs <輸入.mid> [輸出.asm] [--oct=N] [--max=秒] [--speed=倍率]
+//   --oct=N      整體移調 N 個八度（蜂鳴器在 2~4kHz 最有效率，低音會很小聲）
+//   --max=秒     只取前面幾秒（以原速計）
+//   --speed=倍率 整體加速，例如 --speed=1.25 是快 1.25 倍
 //
 // 蜂鳴器只有一支腳、只有高低兩種狀態，所以：
 //   * 和弦一律只留最高音（旋律線）
@@ -97,6 +98,9 @@ const maxSec = +((rest.find((a) => a.startsWith('--max=')) || '--max=0').slice(6
 const mid = parseMidi(readFileSync(inPath));
 let mel = melodyOf(mid);
 if (maxSec > 0) mel = mel.filter((n) => n.startMs < maxSec * 1000);
+const speed = +((rest.find((a) => a.startsWith('--speed=')) || '--speed=1').slice(8));
+if (!(speed > 0)) { console.error('--speed 要是正數'); process.exit(1); }
+if (speed !== 1) for (const n of mel) { n.startMs /= speed; n.endMs /= speed; }
 
 const NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const nameOf = (m) => NAMES[m % 12] + (Math.floor(m / 12) - 1);
@@ -143,9 +147,10 @@ const put = (s) => { asm += s + '\n'; };
 
 put(`;==== ${title} —— 蜂鳴器單音演奏 ====================`);
 put(';');
-put(`; 由 MIDI 轉出來的：node tools/mid2asm.mjs "${title}.mid"`);
+put(`; 由 MIDI 轉出來的：node tools/mid2asm.mjs "${title}.mid"`
+  + (octShift ? ` --oct=${octShift}` : '') + (speed !== 1 ? ` --speed=${speed}` : ''));
 put(`; ${rows.length} 個音、共 ${totalSec} 秒，音域 ${nameOf(used[0])} ~ ${nameOf(used[used.length - 1])}`
-  + (octShift ? `（已整體升 ${octShift} 個八度）` : ''));
+  + (octShift ? `（已整體升 ${octShift} 個八度）` : '') + (speed !== 1 ? `（已加速 ${speed} 倍）` : ''));
 put(';');
 put('; 蜂鳴器只有一支腳，只有高低兩種狀態，所以原曲的和弦一律只留最高音，');
 put('; 力度與音色全部丟掉 —— 剩下的就是一條單音旋律線。');
