@@ -65,14 +65,15 @@ function melodyOf({ div, events }) {
   let lastTick = 0, ms = 0;
   const advance = (tick) => { ms += (tick - lastTick) * usPerQuarter / div / 1000; lastTick = tick; };
 
-  const segs = [];                                   // 每一段「目前按著哪些音」
+  // 每一段 = 從這個事件到下一個事件之間「按著哪些音」，所以要先套用事件再記狀態。
+  // 曾經反過來(先記再套用)，結果單獨的音整個變成休止符、同一拍的和弦挑到先寫的低音。
+  const segs = [];
   for (const e of events) {
     advance(e.tick);
     if (e.type === 'tempo') { usPerQuarter = e.usPerQuarter; continue; }
-    segs.push({ ms, notes: [...held.keys()] });
     if (e.type === 'on') held.set(e.note, ms); else held.delete(e.note);
+    segs.push({ ms, notes: [...held.keys()] });
   }
-  segs.push({ ms, notes: [...held.keys()] });
 
   // 每一段只留最高音；相鄰同音就併起來
   for (let i = 0; i < segs.length - 1; i++) {
