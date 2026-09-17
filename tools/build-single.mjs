@@ -41,10 +41,22 @@ function collect(relPath) {
     });
 
   // export const/class/function/let → 去掉 export，最後再掛到 __e
+  // 一行裡可以宣告好幾個：export const A = 1, B = 2, C = 3;
+  // 只掛第一個的話，其餘在單檔版會變成 undefined —— 而且是靜悄悄地錯：
+  // 曾經因此讓 TCON_TR1 / IE_EA 全成了 undefined，單檔版的計時器與中斷整個失效。
+  // 這裡只認「值裡面沒有括號、引號、斜線」的單純列舉，其他一律當成單一宣告，
+  // 免得把箭頭函式或物件實字裡的逗號誤判成分隔。漏掉的由 bundle 測試擋。
+  const SIMPLE_LIST = /^[\w$]+\s*=\s*[^,;(){}[\]'"`/]+(?:,\s*[\w$]+\s*=\s*[^,;(){}[\]'"`/]+)+;\s*$/;
   const names = [];
-  code = code.replace(/^export\s+(const|let|var|class|function|async function)\s+([\w$]+)/gm, (m, kind, name) => {
-    names.push(name);
-    return `${kind} ${name}`;
+  code = code.replace(/^export\s+(const|let|var|class|function|async function)\s+(.*)$/gm, (m, kind, rest) => {
+    if (SIMPLE_LIST.test(rest)) {
+      for (const part of rest.split(',')) names.push(/^\s*([\w$]+)/.exec(part)[1]);
+    } else {
+      const one = /^([\w$]+)/.exec(rest);
+      if (!one) throw new Error(`${relPath} 認不出來的 export：${m.slice(0, 60)}`);
+      names.push(one[1]);
+    }
+    return `${kind} ${rest}`;
   });
   if (/^export\s/m.test(code)) throw new Error(`${relPath} 有還沒處理的 export 形式`);
   code += '\n' + names.map(n => `__e.${n} = ${n};`).join('\n') + '\n';

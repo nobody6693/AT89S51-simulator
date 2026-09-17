@@ -5,10 +5,36 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { readdirSync, statSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import '../tools/fake-dom.mjs';
+import { assemble } from '../web/src/asm/assembler.js';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const OUT = path.join(ROOT, 'dist', 'KT89S51 實驗板模擬器.html');
+
+test('每一個模組的具名匯出，在單檔版裡都要接得上', async () => {
+  // 打包器是自己用正則把 export 轉成 __e.名字 = 名字 的，漏掉一個不會有任何錯誤訊息，
+  // 只會在執行時變成 undefined。`x & undefined` 是 0、`x |= undefined` 是沒動作，
+  // 所以症狀會是「某個功能靜悄悄地不動」，非常難查。這一項就是擋這個。
+  execFileSync(process.execPath, [path.join(ROOT, 'tools', 'build-single.mjs')], { cwd: ROOT });
+  const html = readFileSync(OUT, 'utf-8');
+  const SRC = path.join(ROOT, 'web', 'src');
+  const walk = (d) => readdirSync(d).flatMap((f) => {
+    const p = path.join(d, f);
+    return statSync(p).isDirectory() ? walk(p) : (f.endsWith('.js') ? [p] : []);
+  });
+  const missing = [];
+  for (const f of walk(SRC)) {
+    if (f.endsWith(path.join('ui', 'app.js'))) continue;      // app.js 是進入點，自己會啟動
+    const mod = await import(pathToFileURL(f).href);
+    for (const name of Object.keys(mod)) {
+      if (name === 'default') continue;
+      if (!html.includes(`__e.${name} = `)) missing.push(`${path.relative(SRC, f)} → ${name}`);
+    }
+  }
+  assert.deepEqual(missing, [], '這些匯出在單檔版裡會是 undefined：\n' + missing.join('\n'));
+});
 
 test('build-single 產生的單檔可以載入並啟動', () => {
   execFileSync(process.execPath, [path.join(ROOT, 'tools', 'build-single.mjs')], { cwd: ROOT });
@@ -60,4 +86,24 @@ test('build-single 產生的單檔可以載入並啟動', () => {
 
   // 版本戳記：這樣才分得出手上拿到的是哪一次打包的
   assert.match(html, /id="st-build">版本 \d{4}/, '缺少版本戳記');
+
+  // 計時器與中斷在「打包後的那一份」也必須真的會動。
+  // 曾經出的包：打包器只認一行裡的第一個 export，於是 TCON_TR1 / IE_EA 這些
+  // 常數在單檔版變成 undefined。`x & undefined` 是 0、`x |= undefined` 沒動作，
+  // 結果 Timer1 不計數、中斷永遠不觸發 —— 模組版全對、單檔版靜悄悄壞掉，
+  // 而使用者跑的正是單檔版（GitHub Pages 上那份就是）。
+  const r = assemble([
+    '\tORG\t0', '\tJMP\tSTART', '\tORG\t0BH', '\tJMP\tISR',
+    'START:\tMOV\tTMOD,#01H', '\tMOV\tTH0,#3CH', '\tMOV\tTL0,#0B0H',
+    '\tSETB\tTR0', '\tSETB\tET0', '\tSETB\tEA', '\tJMP\t$',
+    'ISR:\tMOV\tTH0,#3CH', '\tMOV\tTL0,#0B0H', '\tCPL\tP1.0', '\tRETI', '\tEND',
+  ].join('\n'));
+  assert.ok(r.ok, '測試用的小程式組譯失敗：' + JSON.stringify(r.diagnostics));
+  const bsim = (globalThis.window || globalThis).sim;
+  assert.ok(bsim, '單檔版沒有把 sim 掛到 window 上');
+  bsim.load({ hex: r.hex, lines: r.lines, symbols: r.symbols, name: '計時器測試' });
+  const seen = new Set();
+  for (let i = 0; i < 40; i++) { bsim.cpu.run(20000); seen.add(bsim.bus.latch[1] & 1); }
+  assert.deepEqual([...seen].sort(), [0, 1],
+    'Timer0 中斷在單檔版裡沒有翻轉 P1.0 —— 計時器或中斷失效了');
 });
