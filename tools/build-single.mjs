@@ -136,12 +136,12 @@ writeFileSync(out, page, 'utf-8');
 writeFileSync(join(WEB, 'bundled.html'),
   html + String.fromCharCode(10), 'utf-8');   // artifact.html 開頭已經有 <title>
 
-// 再存一份 index.html：丟到任何靜態空間（GitHub Pages / Netlify…）就直接是首頁。
+// 專案根目錄也放一份 index.html：GitHub Pages 設成從根目錄發佈就直接是網站首頁。
 // 手機（尤其 iPhone）只能用網址開，不能用檔案開 —— 檔案 App 的預覽不執行 script。
-writeFileSync(join(ROOT, 'dist', 'index.html'), page, 'utf-8');
+writeFileSync(join(ROOT, 'index.html'), page, 'utf-8');
 
 console.log(`寫出 ${out}`);
-console.log('    也存了一份 dist/index.html —— 要給手機用的話，把它上傳到免費靜態空間拿一個網址');
+console.log('    也更新了根目錄的 index.html（GitHub Pages 的網站首頁）');
 console.log('也更新了 web/bundled.html（Artifact 用的單檔版）');
 console.log(`模組 ${order.length} 個，共 ${(page.length / 1024).toFixed(0)} KB`);
 console.log('用法：把這一個檔案傳給別人，雙擊用瀏覽器開啟即可，不需要網路也不需要安裝。');
