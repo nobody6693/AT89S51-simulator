@@ -437,7 +437,7 @@ test('floods：主板 P1 燈條跟著音高走，休止符與音尾會熄掉', (
     `P1 出現了不該有的值 ${v.toString(16).toUpperCase()}H`);
 });
 
-// ==== Alicia.asm：由 MIDI 轉出來的單音旋律，加速 1.25 倍後整首 155 秒 ====
+// ==== hidden/Alicia.asm：先不放進範例清單，由 MIDI 轉出來的單音旋律，加速 1.25 倍後整首 155 秒 ====
 const ALICIA_HZ = { C6: 1046.5, G5: 784.0, F5: 698.5, 'A#5': 932.3, 'D#5': 622.3, 'G#4': 415.3, D5: 587.3, G4: 392.0 };
 // 樂譜開頭 15 個音與長度(ms)：原曲 75bpm 的四分音符 400ms、全音符 1600ms，快 1.25 倍後是 320 / 1280
 const ALICIA_HEAD = [
@@ -447,7 +447,7 @@ const ALICIA_HEAD = [
 ];
 
 test('Alicia：組得進 4KB，開頭的音高與音長對得上樂譜', () => {
-  const r = build(asmOf('Alicia.asm'));
+  const r = build(asmOf('hidden/Alicia.asm'));
   assert.ok(r.codeBytes <= 4096, `程式應塞得進 4KB，實際 ${r.codeBytes} 位元組`);
   const s = new Sim();
   s.load({ hex: r.hex, lines: r.lines, symbols: r.symbols, name: 'Alicia.asm' });
