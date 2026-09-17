@@ -48,7 +48,7 @@ const runner = new Runner(sim, {
       const line = sim.lineOfAddr(sim.cpu.pc);
       source.setCurrent(line, !info.running);
       if (activeTab === 'disasm') disasmP.update();
-      if (activeTab === 'memory') memory.update();
+      memory.update();                       // 常駐在左下角，一直都看得到
       output.setWarnings(sim.warnings);
       showWarnings();
     }
@@ -190,7 +190,6 @@ function switchTab(name) {
   for (const t of document.querySelectorAll('.tab')) t.classList.toggle('active', t.id === 'tab-' + name);
   if (name === 'regs') regs.update();
   if (name === 'disasm') disasmP.update();
-  if (name === 'memory') memory.update();
   if (name === 'wave') requestAnimationFrame(() => wave.draw());
 }
 for (const b of document.querySelectorAll('#tabs button')) b.addEventListener('click', () => switchTab(b.dataset.tab));

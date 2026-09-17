@@ -5,7 +5,7 @@ import { hex2, hex4, pinName } from '../board/util.js';
 import { CONNECTORS, DEFAULT_WIRING } from '../board/wiring.js';
 
 const h = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
-const LH = 19;                      // CSS .editor 的 line-height
+const LH = 24;                      // CSS .editor 的 line-height
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 // ---------- 暫存器 ----------
@@ -40,23 +40,17 @@ export class RegistersPanel {
       + flags.map((f, i) => `<i class="${(psw >> (7 - i)) & 1 ? 'on' : ''}">${f}</i>`).join('')
       + `<em>bank ${(psw >> 3) & 3}${c.intHighActive ? ' · ISR(高)' : c.intLowActive ? ' · ISR(低)' : ''}</em></div>`;
 
-    let anyDiff = false;
     for (let p = 0; p < 4; p++) {
       const latch = c.bus.latch[p], pin = c.bus.pins[p];
       let bits = '';
       for (let i = 7; i >= 0; i--) {
         const l = (latch >> i) & 1, q = (pin >> i) & 1;
-        if (l !== q) anyDiff = true;
         bits += `<i class="${l ? '' : 'lo'}${l !== q ? ' diff' : ''}">${l}</i>`;
       }
       html += `<div class="rg-port"><b>P${p}</b><span class="bits">${bits}</span>`
         + `<span class="hex${latch !== pin ? ' split' : ''}">${hex2(latch)}<em>/</em><u>${hex2(pin)}</u></span>`
         + `<span class="note">${PORT_NOTE[p]}</span></div>`;
     }
-    html += anyDiff
-      ? '<div class="rg-legend">格子＝latch（程式寫進去的）；<em>琥珀底線</em>＝腳位實際電位被外面拉走</div>'
-      : '<div class="rg-legend">格子＝latch；目前每一支腳的電位都跟 latch 一樣</div>';
-
     html += '<div class="rg-grid rg-sfr">'
       + this._cell('TMOD', hex2(s[SFR.TMOD - 0x80])) + this._cell('TCON', hex2(s[SFR.TCON - 0x80]))
       + this._cell('TH0:TL0', hex2(s[SFR.TH0 - 0x80]) + hex2(s[SFR.TL0 - 0x80]))

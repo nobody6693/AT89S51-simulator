@@ -26,14 +26,14 @@
   --ok: #00FF41;
   --warn: #FFB000;        /* 變動、提醒 */
   --err: #FF4A3D;         /* 錯誤、中斷點 */
-  --glow: 0 0 8px rgba(0, 255, 65, .4);
+  --glow: 0 0 8px color-mix(in srgb, currentColor 40%, transparent);
   --mono: "Cascadia Mono", "Consolas", "DejaVu Sans Mono", "Menlo", "Noto Sans Mono",
           "Microsoft JhengHei", "PingFang TC", monospace;
 }
 * { box-sizing: border-box; }
 html, body {
   margin: 0; height: 100%; background: var(--bg); color: var(--text);
-  font: 13px/1.45 var(--mono); color-scheme: dark;
+  font: 16.25px/1.45 var(--mono); color-scheme: dark;
   -webkit-font-smoothing: antialiased;
 }
 /* 映像管玻璃：掃描線 + 一點點暈影，蓋在所有東西上面 */
@@ -69,8 +69,8 @@ input[type=checkbox], input[type=range] { accent-color: var(--accent); }
 }
 #toolbar .group { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
 #toolbar .brand { display: flex; flex-direction: column; line-height: 1.1; padding-right: 12px; border-right: 1px solid var(--line); }
-#toolbar .brand b { font-weight: normal; font-size: 15px; letter-spacing: .1em; color: var(--accent); text-shadow: 0 0 9px rgba(0,255,65,.5); }
-#toolbar .brand i { font-style: normal; font-size: 9.5px; letter-spacing: .2em; color: var(--muted); }
+#toolbar .brand b { font-weight: normal; font-size: 18.75px; letter-spacing: .1em; color: var(--accent); text-shadow: var(--glow-strong); }
+#toolbar .brand i { font-style: normal; font-size: 11.88px; letter-spacing: .2em; color: var(--muted); }
 #toolbar .status {
   margin-left: auto; display: flex; align-items: stretch; gap: 0;
   background: var(--well); border: 1px solid var(--line); color: var(--muted);
@@ -82,7 +82,7 @@ input[type=checkbox], input[type=range] { accent-color: var(--accent); }
   color: var(--accent); text-shadow: var(--glow); letter-spacing: .04em;
 }
 #toolbar .status #st-reason { color: var(--warn); }
-#toolbar .status #st-build { color: var(--faint); font-size: 11px; }
+#toolbar .status #st-build { color: var(--faint); font-size: 13.75px; }
 #toolbar .status > span:empty { display: none; }
 #toolbar .zoom { display: inline-flex; gap: 0; }
 #toolbar .zoom button { padding: 5px 9px; border-right-width: 0; }
@@ -92,16 +92,20 @@ input[type=checkbox], input[type=range] { accent-color: var(--accent); }
 #main { flex: 1; display: grid; grid-template-columns: minmax(560px, 1.32fr) minmax(430px, 1fr); gap: 12px; padding: 12px; min-height: 0; }
 #left { display: flex; flex-direction: column; gap: 14px; overflow: auto; min-height: 0; }
 #left > * { flex: none; }   /* 板子不准被擠扁，左欄放不下就讓它捲 */
+
+/* 記憶體停靠在左下角，不收進分頁 —— 跑程式時要一直看得到 */
+#mem-dock { display: flex; flex-direction: column; min-height: 0; padding-bottom: 8px; }
+#mem-dock #memory { flex: 1; min-height: 0; max-height: 36vh; overflow: auto; padding: 2px 0 0; }
 #right { display: flex; flex-direction: column; gap: 0; min-height: 0; }
 
 /* 面板：方角、細框，標題嵌在框線上的切口裡 */
 .card { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 0; padding: 15px 13px 12px; }
 .card h3 {
   position: absolute; top: -8px; left: 10px; margin: 0; padding: 0 6px; background: var(--bg);
-  font-size: 10.5px; font-weight: normal; letter-spacing: .2em; color: var(--muted); text-transform: none;
+  font-size: 13.13px; font-weight: normal; letter-spacing: .2em; color: var(--muted); text-transform: none;
 }
 .card h3::before { content: '[ '; } .card h3::after { content: ' ]'; }
-.card.warn { border-color: var(--warn); color: var(--warn); font-size: 12px; }
+.card.warn { border-color: var(--warn); color: var(--warn); font-size: 15px; }
 .card.warn div { padding: 2px 0; }
 .card.warn .suggest { color: var(--accent); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .card.warn .suggest button { padding: 2px 8px; border-color: var(--line2); }
@@ -109,50 +113,44 @@ input[type=checkbox], input[type=range] { accent-color: var(--accent); }
 /* ---------- 板子 ---------- */
 #board-wrap { position: relative; overflow-x: auto; overflow-y: hidden; background: var(--well); border: 1px solid var(--line); padding: 8px; -webkit-overflow-scrolling: touch; }
 #board-wrap svg { width: calc(100% * var(--bz, 1)); height: auto; display: block; }
-.board-tip {
-  position: absolute; z-index: 20; max-width: 300px; background: rgba(0,0,0,.94); color: var(--text);
-  border: 1px solid var(--accent); border-radius: 0; padding: 7px 10px; font-size: 11.5px; line-height: 1.5;
-  pointer-events: none; box-shadow: 0 0 18px rgba(0,0,0,.9);
-}
-.board-tip b { color: var(--accent); font-weight: normal; }
 #board-wrap .clickable { cursor: pointer; }
 #board-wrap text { user-select: none; pointer-events: none; }
 
 /* ---------- 類比 / 環境 ---------- */
 #analog-panel label { display: flex; align-items: center; gap: 8px; margin: 4px 0; color: var(--text); }
 #analog-panel input[type=range] { flex: 1; }
-#analog-panel span { min-width: 74px; text-align: right; color: var(--accent); }
+#analog-panel span { min-width: 92px; text-align: right; color: var(--accent); }
 #analog-panel .dac { display: flex; align-items: center; gap: 8px; margin: 4px 0; color: var(--muted); }
 #analog-panel .bar { flex: 1; height: 9px; background: var(--well); border: 1px solid var(--grid); }
 #analog-panel .bar div { height: 100%; width: 0; background: var(--accent); box-shadow: 0 0 8px rgba(0,255,65,.5); }
 
 /* ---------- 暫存器（收在分頁裡）---------- */
-#regs { padding: 10px; display: flex; flex-direction: column; gap: 9px; font-size: 12px; }
+#regs { padding: 10px; display: flex; flex-direction: column; gap: 9px; font-size: 15px; }
 #regs .rg-grid { display: grid; gap: 4px; }
-#regs .rg-core { grid-template-columns: repeat(auto-fit, minmax(86px, 1fr)); }
+#regs .rg-core { grid-template-columns: repeat(auto-fit, minmax(108px, 1fr)); }
 #regs .rg-bank { grid-template-columns: repeat(8, minmax(0, 1fr)); }
-#regs .rg-sfr { grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); }
+#regs .rg-sfr { grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); }
 #regs .rg { background: var(--well); border: 1px solid var(--grid); padding: 4px 7px; display: flex; flex-direction: column; }
-#regs .rg b { font-weight: normal; font-size: 9.5px; letter-spacing: .14em; color: var(--muted); }
-#regs .rg span { font-size: 13.5px; color: var(--text); }
+#regs .rg b { font-weight: normal; font-size: 11.88px; letter-spacing: .14em; color: var(--muted); }
+#regs .rg span { font-size: 16.88px; color: var(--text); }
 #regs .rg.hot span { color: var(--accent); text-shadow: var(--glow); }
 #regs .rg.changed { border-color: var(--warn); }
 #regs .rg.changed span { color: var(--warn); }
 #regs .rg-sfr .rg { flex-direction: row; align-items: baseline; justify-content: space-between; gap: 6px; }
-#regs .rg-sfr .rg span { font-size: 12.5px; }
+#regs .rg-sfr .rg span { font-size: 15.63px; }
 
 #regs .rg-flags { display: flex; align-items: center; gap: 4px; }
-#regs .rg-flags b { font-weight: normal; width: 32px; flex: none; font-size: 9.5px; letter-spacing: .16em; color: var(--muted); }
-#regs .rg-flags i { flex: 1; font-style: normal; text-align: center; padding: 2px 0; font-size: 10.5px; border: 1px solid var(--grid); color: var(--faint); }
+#regs .rg-flags b { font-weight: normal; width: 40px; flex: none; font-size: 11.88px; letter-spacing: .16em; color: var(--muted); }
+#regs .rg-flags i { flex: 1; font-style: normal; text-align: center; padding: 2px 0; font-size: 13.13px; border: 1px solid var(--grid); color: var(--faint); }
 #regs .rg-flags i.on { background: var(--accent); border-color: var(--accent); color: #000; }
-#regs .rg-flags em { font-style: normal; flex: none; padding-left: 8px; font-size: 10.5px; color: var(--muted); }
+#regs .rg-flags em { font-style: normal; flex: none; padding-left: 8px; font-size: 13.13px; color: var(--muted); }
 
 #regs .rg-port { display: flex; align-items: center; gap: 7px; }
-#regs .rg-port b { font-weight: normal; width: 22px; flex: none; color: var(--muted); }
+#regs .rg-port b { font-weight: normal; width: 28px; flex: none; color: var(--muted); }
 #regs .rg-port .bits { flex: none; display: flex; gap: 2px; }
 #regs .rg-port .bits i {
-  font-style: normal; width: 19px; height: 20px; display: inline-flex; align-items: center; justify-content: center;
-  font-size: 11px; background: var(--well); color: var(--text); box-shadow: inset 0 0 0 1px var(--grid);
+  font-style: normal; width: 24px; height: 25px; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 13.75px; background: var(--well); color: var(--text); box-shadow: inset 0 0 0 1px var(--grid);
 }
 #regs .rg-port .bits i.lo { background: var(--text); color: #000; }          /* 0 = 反白 */
 #regs .rg-port .bits i.diff { box-shadow: inset 0 0 0 1px var(--grid), inset 0 -3px 0 var(--warn); }
@@ -160,9 +158,7 @@ input[type=checkbox], input[type=range] { accent-color: var(--accent); }
 #regs .rg-port .hex u { text-decoration: none; }
 #regs .rg-port .hex.split u { color: var(--warn); }
 #regs .rg-port .hex em { font-style: normal; color: var(--faint); }
-#regs .rg-port .note { flex: 1; text-align: right; font-size: 10.5px; color: var(--muted); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-#regs .rg-legend { font-size: 10.5px; color: var(--muted); }
-#regs .rg-legend em { font-style: normal; color: var(--warn); }
+#regs .rg-port .note { flex: 1; text-align: right; font-size: 13.13px; color: var(--muted); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 
 /* ---------- 分頁 ---------- */
 #tabs { display: flex; gap: 0; border: 1px solid var(--line); border-bottom: 0; background: var(--panel); }
@@ -173,21 +169,21 @@ input[type=checkbox], input[type=range] { accent-color: var(--accent); }
 .tab.active { display: block; }
 
 /* ---------- 原始碼 / 反組譯 ---------- */
-#source, #disasm { font-size: 12.5px; }
-.line { display: flex; white-space: pre; min-height: 19px; }
-.line .gutter { width: 50px; flex: none; text-align: right; padding-right: 9px; color: var(--faint); cursor: pointer; user-select: none; position: relative; }
+#source, #disasm { font-size: 15.63px; }
+.line { display: flex; white-space: pre; min-height: 24px; }
+.line .gutter { width: 62px; flex: none; text-align: right; padding-right: 11px; color: var(--faint); cursor: pointer; user-select: none; position: relative; }
 .line .gutter:hover { color: var(--accent); }
-.line.bp .gutter::before { content: '●'; color: var(--err); position: absolute; left: 6px; }
+.line.bp .gutter::before { content: '●'; color: var(--err); position: absolute; left: 8px; }
 .line.cur { background: rgba(0, 255, 65, .07); }
 .line.cur .gutter { color: var(--accent); }
-.line.cur .gutter::after { content: '▶'; color: var(--accent); position: absolute; left: 20px; }
+.line.cur .gutter::after { content: '▶'; color: var(--accent); position: absolute; left: 25px; }
 .line.err { background: rgba(255, 74, 61, .14); }
 .line.warnl { background: rgba(255, 176, 0, .13); }
 .line.nocode .gutter { color: #2A3A2C; }
-.line .txt { flex: 1; padding-left: 6px; }
-.line .addr { width: 52px; color: var(--muted); flex: none; }
-.line .bytes { width: 82px; color: var(--faint); flex: none; }
-.line .cline { color: var(--muted); flex: none; width: 40px; text-align: right; padding-right: 8px; }
+.line .txt { flex: 1; padding-left: 8px; }
+.line .addr { width: 65px; color: var(--muted); flex: none; }
+.line .bytes { width: 102px; color: var(--faint); flex: none; }
+.line .cline { color: var(--muted); flex: none; width: 50px; text-align: right; padding-right: 10px; }
 
 /* 語法配色：六個角色六個色相，亮度與彩度算在同一階上 */
 .tok-lbl { color: #77DF89; }   /* 標籤 */
@@ -199,56 +195,56 @@ input[type=checkbox], input[type=range] { accent-color: var(--accent); }
 .tok-cm  { color: #839085; }   /* 註解 */
 
 /* ---------- 記憶體 ---------- */
-#memory { font-size: 12px; padding: 8px; }
-#memory h4 { margin: 10px 0 5px; color: var(--muted); font-weight: normal; font-size: 10.5px; letter-spacing: .16em; }
+#memory { font-size: 15px; padding: 8px; }
+#memory h4 { margin: 10px 0 5px; color: var(--muted); font-weight: normal; font-size: 13.13px; letter-spacing: .16em; }
 #memory h4:first-child { margin-top: 0; }
 #memory .hexrow { white-space: pre; color: var(--text); }
 #memory .hexrow .a { color: var(--muted); }
 #memory .b { color: var(--text); }
 #memory .b.ch { color: var(--warn); }
 #memory .b.pc { background: var(--text); color: #000; }
-#memory .sym { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 2px 10px; }
+#memory .sym { display: grid; grid-template-columns: repeat(auto-fill, minmax(238px, 1fr)); gap: 2px 10px; }
 #memory .sym b, #memory .sfrgrid b { font-weight: normal; }
-#memory .sfrgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 2px 8px; }
+#memory .sfrgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(115px, 1fr)); gap: 2px 8px; }
 
 /* ---------- 波形 ---------- */
 #wave { padding: 8px; height: 100%; display: flex; flex-direction: column; gap: 7px; }
 #wave .ctl { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; color: var(--muted); }
-#wave .ctl .pins { display: flex; flex-wrap: wrap; gap: 2px 8px; font-size: 11px; }
+#wave .ctl .pins { display: flex; flex-wrap: wrap; gap: 2px 8px; font-size: 13.75px; }
 #wave canvas { width: 100%; flex: 1; background: #000; border: 1px solid var(--grid); }
 
 /* ---------- 週邊監視 ---------- */
 #periph { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px; }
-#periph .box { background: var(--well); border: 1px solid var(--grid); padding: 7px 9px; font-size: 11.5px; min-height: 60px; }
-#periph .box h4 { margin: 0 0 5px; color: var(--muted); font: 10px var(--mono); font-weight: normal; letter-spacing: .16em; }
+#periph .box { background: var(--well); border: 1px solid var(--grid); padding: 7px 9px; font-size: 14.38px; min-height: 60px; }
+#periph .box h4 { margin: 0 0 5px; color: var(--muted); font: 12.5px var(--mono); font-weight: normal; letter-spacing: .16em; }
 #periph .box pre { margin: 0; white-space: pre-wrap; max-height: 220px; overflow: auto; color: var(--text); font: inherit; }
 
 /* ---------- 接線 ---------- */
 #wiring { padding: 9px; }
 #wiring .conn { display: grid; grid-template-columns: 250px 1fr; gap: 6px; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--grid); color: var(--muted); }
 #wiring .conn .pins { display: flex; flex-wrap: wrap; gap: 3px; }
-#wiring .conn select { font-size: 11px; padding: 1px 3px; }
+#wiring .conn select { font-size: 13.75px; padding: 1px 3px; }
 #wiring .grp { margin-top: 11px; display: flex; align-items: center; gap: 10px; color: var(--accent); }
 #wiring .grp label { color: var(--text); }
 #wiring .quick { display: flex; gap: 0; margin-left: 6px; }
-#wiring .quick button { padding: 1px 7px; font-size: 11px; border-right-width: 0; }
+#wiring .quick button { padding: 1px 7px; font-size: 13.75px; border-right-width: 0; }
 #wiring .quick button:last-child { border-right-width: 1px; }
 #wiring .conf { margin: 10px 0; }
 #wiring .conf div.error { color: var(--err); } #wiring .conf div.warn { color: var(--warn); }
 #wiring .presets, #wiring .wtools { display: flex; gap: 6px; align-items: center; margin-bottom: 9px; flex-wrap: wrap; color: var(--muted); }
-#wiring .wlist { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 2px 10px; font-size: 11px; color: var(--text); }
+#wiring .wlist { display: grid; grid-template-columns: repeat(auto-fill, minmax(238px, 1fr)); gap: 2px 10px; font-size: 13.75px; color: var(--text); }
 #wiring .wlist .none { color: var(--faint); }
 
 /* ---------- 輸出 ---------- */
-#output { padding: 9px; font-size: 12px; color: var(--text); }
+#output { padding: 9px; font-size: 15px; color: var(--text); }
 #output .diag { cursor: pointer; padding: 2px 4px; }
 #output .diag.error { color: var(--err); } #output .diag.warning { color: var(--warn); }
 #output .diag:hover { background: var(--line); }
-#output h4 { margin: 10px 0 5px; color: var(--muted); font-weight: normal; font-size: 10.5px; letter-spacing: .16em; }
+#output h4 { margin: 10px 0 5px; color: var(--muted); font-weight: normal; font-size: 13.13px; letter-spacing: .16em; }
 #output pre { background: #000; border: 1px solid var(--grid); padding: 7px; white-space: pre-wrap; max-height: 260px; overflow: auto; margin: 0; font: inherit; color: var(--text); }
 
-#drop-hint { position: fixed; inset: 0; background: rgba(0,255,65,.08); border: 2px dashed var(--accent); display: flex; align-items: center; justify-content: center; font-size: 26px; letter-spacing: .1em; color: var(--accent); text-shadow: var(--glow); z-index: 99; pointer-events: none; }
-kbd { background: var(--well); border: 1px solid var(--line2); border-bottom-width: 2px; padding: 0 5px; font: inherit; font-size: 11px; color: var(--accent); }
+#drop-hint { position: fixed; inset: 0; background: rgba(0,255,65,.08); border: 2px dashed var(--accent); display: flex; align-items: center; justify-content: center; font-size: 32.5px; letter-spacing: .1em; color: var(--accent); text-shadow: var(--glow); z-index: 99; pointer-events: none; }
+kbd { background: var(--well); border: 1px solid var(--line2); border-bottom-width: 2px; padding: 0 5px; font: inherit; font-size: 13.75px; color: var(--accent); }
 
 @media (max-width: 1250px) { #main { grid-template-columns: 1fr; } }
 
@@ -261,10 +257,10 @@ kbd { background: var(--well); border: 1px solid var(--line2); border-bottom-wid
   #right { margin-top: 14px; }
   .tab { max-height: 65vh; }
 
-  #toolbar { gap: 5px 10px; padding: 7px; font-size: 12px; }
+  #toolbar { gap: 5px 10px; padding: 7px; font-size: 15px; }
   #toolbar button { padding: 7px 9px; }
   #toolbar select { padding: 6px 6px; }
-  #toolbar .status { margin-left: 0; width: 100%; font-size: 11px; flex-wrap: wrap; }
+  #toolbar .status { margin-left: 0; width: 100%; font-size: 13.75px; flex-wrap: wrap; }
   #toolbar .status > span { padding: 3px 9px; }
   #toolbar .status #st-name { max-width: none; }
 
@@ -275,13 +271,12 @@ kbd { background: var(--well); border: 1px solid var(--line2); border-bottom-wid
   #toolbar select { max-width: 44vw; }
   #file-name { width: 30vw; min-width: 88px; }
   #periph .box pre { word-break: break-all; }
-  #analog-panel label > span, #analog-panel .dac > span { min-width: 60px; }
+  #analog-panel label > span, #analog-panel .dac > span { min-width: 75px; }
 
   #tabs { overflow-x: auto; scrollbar-width: none; }
   #tabs::-webkit-scrollbar { display: none; }
   #tabs button { flex: none; white-space: nowrap; padding: 8px 11px; }
 
-  .board-tip { max-width: 70vw; }
   /* 滑桿自己占一行，數值才不會被擠到畫面外 */
   #analog-panel label, #analog-panel .dac { display: grid; grid-template-columns: 1fr auto; gap: 3px 8px; }
   #analog-panel label input[type=range], #analog-panel .dac .bar { grid-column: 1 / -1; }
@@ -289,20 +284,20 @@ kbd { background: var(--well); border: 1px solid var(--line2); border-bottom-wid
 }
 
 /* ---------- 可編輯的原始碼 ---------- */
-.editor { display: flex; align-items: flex-start; font-size: 12.5px; line-height: 19px; min-height: 100%; background: #040805; }
+.editor { display: flex; align-items: flex-start; font-size: 15.63px; line-height: 24px; min-height: 100%; background: #040805; }
 .editor .gut {
-  position: sticky; left: 0; z-index: 3; flex: none; width: 50px; padding-right: 9px; text-align: right;
+  position: sticky; left: 0; z-index: 3; flex: none; width: 62px; padding-right: 11px; text-align: right;
   background: var(--panel); color: #727E74; user-select: none; border-right: 1px solid var(--grid);
 }
-.editor .gut div { height: 19px; cursor: pointer; position: relative; }
+.editor .gut div { height: 24px; cursor: pointer; position: relative; }
 .editor .gut div:hover { color: var(--accent); }
 .editor .gut div.nocode { color: #3A4A3C; }
-.editor .gut div.bp::before { content: '●'; color: var(--err); position: absolute; left: 5px; }
+.editor .gut div.bp::before { content: '●'; color: var(--err); position: absolute; left: 6px; }
 .editor .gut div.cur { color: var(--accent); }
-.editor .gut div.cur::after { content: '▶'; color: var(--accent); position: absolute; left: 19px; }
+.editor .gut div.cur::after { content: '▶'; color: var(--accent); position: absolute; left: 24px; }
 .editor .codecol { position: relative; flex: 1; min-width: max-content; }
 .editor .marks { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
-.editor .marks div { position: absolute; left: 0; right: 0; height: 19px; min-width: 100%; }
+.editor .marks div { position: absolute; left: 0; right: 0; height: 24px; min-width: 100%; }
 .editor .marks .m-cur { background: rgba(0, 255, 65, .07); }
 .editor .marks .m-err { background: rgba(255, 74, 61, .14); }
 .editor .marks .m-warn { background: rgba(255, 176, 0, .13); }
@@ -318,20 +313,24 @@ kbd { background: var(--well); border: 1px solid var(--line2); border-bottom-wid
 .editor textarea::selection { background: rgba(0, 255, 65, .22); }
 #source.ro .editor textarea { caret-color: transparent; }
 
-/* 編輯器底下的語法色例 */
-#legend { flex: none; display: flex; align-items: center; gap: 13px; flex-wrap: wrap; padding: 5px 10px; background: var(--panel); border: 1px solid var(--line); border-top: 0; font-size: 10.5px; color: var(--muted); }
-#legend span { display: inline-flex; align-items: center; gap: 5px; }
-#legend i { font-style: normal; width: 8px; height: 8px; }
 
-#fatal { background: rgba(255,74,61,.14); color: var(--err); border-bottom: 1px solid var(--err); padding: 9px 11px; font-size: 12px; white-space: pre-wrap; }
+#fatal { background: rgba(255,74,61,.14); color: var(--err); border-bottom: 1px solid var(--err); padding: 9px 11px; font-size: 15px; white-space: pre-wrap; }
 
 /* ---------- 磷光輝光：只給需要強調的字，不是整片都發亮 ---------- */
 /* 三階：主要讀數最亮、可互動次之、警告與錯誤各自的色相 */
+/* 輝光一律用 currentColor 調出來，字是什麼顏色就發什麼顏色的光。
+   var() 是在使用它的那個元素上展開的，所以 currentColor 抓到的是那個元素自己的 color。 */
 :root {
-  --glow-strong: 0 0 4px rgba(0,255,65,.85), 0 0 12px rgba(0,255,65,.45), 0 0 26px rgba(0,255,65,.18);
-  --glow-soft:   0 0 3px rgba(0,255,65,.55), 0 0 10px rgba(0,255,65,.22);
-  --glow-warn:   0 0 4px rgba(255,176,0,.8), 0 0 13px rgba(255,176,0,.35);
-  --glow-err:    0 0 4px rgba(255,74,61,.8), 0 0 13px rgba(255,74,61,.35);
+  --glow-strong: 0 0 4px color-mix(in srgb, currentColor 85%, transparent),
+                 0 0 12px color-mix(in srgb, currentColor 45%, transparent),
+                 0 0 26px color-mix(in srgb, currentColor 18%, transparent);
+  --glow-soft:   0 0 3px color-mix(in srgb, currentColor 55%, transparent),
+                 0 0 10px color-mix(in srgb, currentColor 22%, transparent);
+  --glow-half:   0 0 3px color-mix(in srgb, currentColor 34%, transparent),
+                 0 0 9px  color-mix(in srgb, currentColor 13%, transparent);
+  --glow-warn:   0 0 4px color-mix(in srgb, currentColor 80%, transparent),
+                 0 0 13px color-mix(in srgb, currentColor 35%, transparent);
+  --glow-err:    var(--glow-warn);
 }
 
 /* 狀態列讀數：PC / 週期 / R0 —— 執行時一直在跳，是最該亮的東西 */
@@ -360,11 +359,13 @@ button:hover:not(:disabled) { text-shadow: var(--glow-soft); }
 
 /* 類比讀數、板子提示、警告卡 */
 #analog-panel span { color: var(--accent); text-shadow: var(--glow-soft); }
-.board-tip b { text-shadow: var(--glow-soft); }
 .card.warn { text-shadow: var(--glow-warn); }
 
 /* 板子上的絲印不加輝光 —— 那是印在板子上的漆，不是發光的東西 */
 #board-wrap text { text-shadow: none; }
+
+/* 原始碼：語法色各自發自己顏色的光，強度只給一半 */
+.editor pre.hl, #source .line .txt, #disasm .line .txt { text-shadow: var(--glow-half); }
 
 </style>
 <noscript><div style="padding:16px;background:#1a0505;color:#FF4A3D;font:14px monospace">這個模擬器需要 JavaScript，請在瀏覽器設定裡開啟。</div></noscript>
@@ -390,7 +391,7 @@ button:hover:not(:disabled) { text-shadow: var(--glow-soft); }
       <span id="st-r0">R0 00</span>
       <span id="st-cycles">0 µs</span>
       <span id="st-reason"></span>
-      <span id="st-build">版本 2026/9/17 22:44:19</span>
+      <span id="st-build">版本 2026/9/17 23:05:58</span>
     </div>
   </header>
 
@@ -399,6 +400,7 @@ button:hover:not(:disabled) { text-shadow: var(--glow-soft); }
     <section id="left">
       <div id="board-wrap"></div>
       <div id="warnings" class="card warn" hidden></div>
+      <div id="mem-dock" class="card"><h3>記憶體</h3><div id="memory"></div></div>
     </section>
 
     <!-- 右邊：程式 -->
@@ -407,7 +409,6 @@ button:hover:not(:disabled) { text-shadow: var(--glow-soft); }
         <button data-tab="source" class="active">原始碼</button>
         <button data-tab="regs">暫存器</button>
         <button data-tab="disasm">反組譯</button>
-        <button data-tab="memory">記憶體</button>
         <button data-tab="wave">波形</button>
         <button data-tab="wiring">接線</button>
         <button data-tab="analog">類比</button>
@@ -417,7 +418,6 @@ button:hover:not(:disabled) { text-shadow: var(--glow-soft); }
       <div id="tab-source" class="tab active"><div id="source"></div></div>
       <div id="tab-regs" class="tab"><div id="regs"></div></div>
       <div id="tab-disasm" class="tab"><div id="disasm"></div></div>
-      <div id="tab-memory" class="tab"><div id="memory"></div></div>
       <div id="tab-wave" class="tab"><div id="wave"></div></div>
       <div id="tab-wiring" class="tab"><div id="wiring"></div></div>
       <div id="tab-analog" class="tab"><div id="analog-panel">
@@ -428,14 +428,6 @@ button:hover:not(:disabled) { text-shadow: var(--glow-soft); }
       </div></div>
       <div id="tab-periph" class="tab"><div id="periph"></div></div>
       <div id="tab-output" class="tab"><div id="output"></div></div>
-      <div id="legend">
-        <span><i style="background:#77DF89"></i>標籤</span>
-        <span><i style="background:#7DC4FF"></i>助憶碼</span>
-        <span><i style="background:#FF8785"></i>偽指令</span>
-        <span><i style="background:#FFAE5D"></i>暫存器 / 位元</span>
-        <span><i style="background:#D7A6FC"></i>立即值</span>
-        <span><i style="background:#839085"></i>註解</span>
-      </div>
     </section>
   </main>
   <div id="drop-hint" hidden>放開以載入檔案</div>
@@ -2832,29 +2824,6 @@ function recomputeEnabled(cfg) {
   return cfg;
 }
 
-const MAIN_FIXED = {
-  'P1.0': 'LED DS1', 'P1.1': 'LED DS2', 'P1.2': 'LED DS3', 'P1.3': 'LED DS4',
-  'P1.4': 'LED DS5', 'P1.5': 'LED DS6', 'P1.6': 'LED DS7', 'P1.7': 'LED DS8',
-  'P0.0': 'SW1-1 / LCM D0', 'P0.1': 'SW1-2 / LCM D1', 'P0.2': 'SW1-3 / LCM D2', 'P0.3': 'SW1-4 / LCM D3',
-  'P0.4': 'SW1-5 / LCM D4', 'P0.5': 'SW1-6 / LCM D5', 'P0.6': 'SW1-7 / LCM D6', 'P0.7': 'SW1-8 / LCM D7',
-  'P2.0': '按鍵 PB3', 'P2.1': '按鍵 PB4',
-  'P3.0': 'LCM EN / RXD', 'P3.1': 'LCM R/W / TXD', 'P3.2': 'LCM RS / PB1 / INT0', 'P3.3': 'PB2 / INT1',
-  'P3.4': 'T0', 'P3.5': 'T1', 'P3.7': '蜂鳴器',
-};
-const NON_IO = {
-  VCC: '電源 +5V。', GND: '接地。', 'GND ': '接地。', '+5V': '電源 +5V。', '12V': '馬達電源 12V。', '5V': '馬達電源 5V。',
-  RST: '重置腳。', X1: '石英振盪腳。', X2: '石英振盪腳。',
-  EA: '接 VCC = 用晶片內部的程式記憶體。', ALE: '接外部記憶體才用得到。',
-  PSEN: '接外部記憶體才用得到。', WP: 'EEPROM 防寫。', VSS: '接地。', VDD: '電源。', VO: 'LCM 對比。',
-  RS: 'LCM 暫存器選擇，板上焊到 P3.2。', 'R/W': 'LCM 讀寫選擇，板上焊到 P3.1。', EN: 'LCM 致能，板上焊到 P3.0。',
-  D0: 'LCM 資料線，板上焊到 P0.0。', D1: 'LCM 資料線，板上焊到 P0.1。', D2: 'LCM 資料線，板上焊到 P0.2。',
-  D3: 'LCM 資料線，板上焊到 P0.3。', D4: 'LCM 資料線，板上焊到 P0.4。', D5: 'LCM 資料線，板上焊到 P0.5。',
-  D6: 'LCM 資料線，板上焊到 P0.6。', D7: 'LCM 資料線，板上焊到 P0.7。',
-  A: 'LCM 背光 +。', K: 'LCM 背光 −。', G: 'RGB LED 綠。', B: 'RGB LED 藍。', '中': 'LCM 型式選擇腳。',
-  CH0: 'MCP4822 A 通道類比輸出。', CH1: 'LM35 輸出 / MCP4822 B 通道。',
-  '棕': '馬達線圈共同端。', '紅': '馬達 A 相。', '黃': '馬達 B 相。', '白': '馬達 Ā 相。', '藍': '馬達 B̄ 相。',
-};
-
 class BoardView {
   constructor(container, sim, runner) {
     this.sim = sim; this.runner = runner;
@@ -2862,9 +2831,6 @@ class BoardView {
     this.container = container;
     this.svg = el('svg', { viewBox: `0 0 ${P(892)} ${P(424)}`, xmlns: NS });
     container.appendChild(this.svg);
-    this.tip = document.createElement('div');
-    this.tip.className = 'board-tip'; this.tip.hidden = true;
-    container.appendChild(this.tip);
 
     this.portPins = {};   // 'P1.3' → [{x,y,dot}]
     this.devEls = {};     // 'seg.0' → [{x,y,dot}]
@@ -2905,18 +2871,20 @@ class BoardView {
     el('feDropShadow', { dx: 0, dy: 2, stdDeviation: 2, 'flood-color': '#2A0308', 'flood-opacity': .55 }, sh);
     const bsh = el('filter', { id: 'boardsh', x: '-8%', y: '-8%', width: '118%', height: '122%' }, defs);
     el('feDropShadow', { dx: 0, dy: 5, stdDeviation: 7, 'flood-color': '#000', 'flood-opacity': .5 }, bsh);
+    // LED：核心接近白、外圈帶黃，才像真的在發光而不是貼了一塊白斑
     const g2 = el('radialGradient', { id: 'ledglow' }, defs);
-    el('stop', { offset: '0%', 'stop-color': '#fff', 'stop-opacity': .95 }, g2);
-    el('stop', { offset: '100%', 'stop-color': '#fff', 'stop-opacity': 0 }, g2);
-  }
-  _tip(node, title, body) {
-    node.addEventListener('mouseenter', () => { this.tip.innerHTML = `<b>${title}</b>${body ? '<br>' + body : ''}`; this.tip.hidden = false; });
-    node.addEventListener('mousemove', (e) => {
-      const r = this.container.getBoundingClientRect();
-      this.tip.style.left = Math.min(e.clientX - r.left + 14, r.width - this.tip.offsetWidth - 8) + 'px';
-      this.tip.style.top = (e.clientY - r.top + 18) + 'px';
-    });
-    node.addEventListener('mouseleave', () => { this.tip.hidden = true; });
+    el('stop', { offset: '0%', 'stop-color': '#FFFFF0', 'stop-opacity': 1 }, g2);
+    el('stop', { offset: '38%', 'stop-color': '#FFE873', 'stop-opacity': .72 }, g2);
+    el('stop', { offset: '100%', 'stop-color': '#FFC933', 'stop-opacity': 0 }, g2);
+    // 亮度高時再往外散一圈，讓整塊板子被照到
+    const g3 = el('radialGradient', { id: 'ledbloom' }, defs);
+    el('stop', { offset: '0%', 'stop-color': '#FFE85C', 'stop-opacity': .42 }, g3);
+    el('stop', { offset: '100%', 'stop-color': '#FFD54A', 'stop-opacity': 0 }, g3);
+    // 蜂鳴器：琥珀色
+    const g4 = el('radialGradient', { id: 'buzzglow' }, defs);
+    el('stop', { offset: '0%', 'stop-color': '#FFE9A8', 'stop-opacity': .85 }, g4);
+    el('stop', { offset: '45%', 'stop-color': '#FFD166', 'stop-opacity': .45 }, g4);
+    el('stop', { offset: '100%', 'stop-color': '#FFB000', 'stop-opacity': 0 }, g4);
   }
   // 絲印外框（白色細線），位置沿用元件本身量好的座標
   _silk(g, x, y, w, h, r = 2) {
@@ -2928,7 +2896,7 @@ class BoardView {
     el('circle', { cx: P(x), cy: P(y), r: P(4.5), fill: '#6A6A6A' }, g);
     el('circle', { cx: P(x) - P(2), cy: P(y) - P(2), r: P(1.6), fill: '#F2F2F2', opacity: .55 }, g);
   }
-  _chip(g, x, y, w, h, label, help, vertical) {
+  _chip(g, x, y, w, h, label, vertical) {
     const c = el('g', {}, g);
     el('rect', { x: P(x), y: P(y), width: P(w), height: P(h), rx: 2, fill: 'url(#ic)', stroke: '#0A0A0A', filter: 'url(#comp)' }, c);
     const n = Math.max(2, Math.round((vertical ? h : w) / 9));
@@ -2943,7 +2911,6 @@ class BoardView {
       }
     }
     if (label) txt(c, P(x + w / 2), P(y + h / 2 + 1.8), label, { 'font-size': 12, fill: '#D2D2D2', 'text-anchor': 'middle' });
-    if (help) this._tip(c, label, help);
     return c;
   }
 
@@ -2987,40 +2954,22 @@ class BoardView {
       if (name && !spec.bare && !dupCol) txt(grp, lx, ly, name, { 'font-size': spec.labelSize || 11, 'text-anchor': anchor, fill: on || clickable ? SILK : '#8d8d93' });
       if (dev) {
         grp.addEventListener('click', (e) => { e.stopPropagation(); this._devClicked(dev); });
-        this._tip(grp, `${spec.id} 第 ${i + 1} 腳 — ${name}`, spec.note || '');
         (this.devEls[dev] = this.devEls[dev] || []).push({ x: px, y: py, dot });
       } else if (port) {
         grp.addEventListener('click', (e) => { e.stopPropagation(); this._portClicked(port); });
-        this._tip(grp, `${spec.id} 第 ${i + 1} 腳 — ${name}`,
-          MAIN_FIXED[port] ? `板上已焊：<b>${MAIN_FIXED[port]}</b>` : '');
         (this.portPins[port] = this.portPins[port] || []).push({ x: px, y: py, dot });
       } else if (rail) {
         grp.addEventListener('click', (e) => { e.stopPropagation(); this._railClicked(rail); });
-        this._tip(grp, `${spec.id} 第 ${i + 1} 腳 — ${name}`,
-          rail === 'gnd' ? '點它再點任一支埠腳，那支腳就被<b>拉到 0</b>。'
-                         : '點它再點任一支埠腳，那支腳就被<b>拉到 1</b>。<br>⚠ 程式對它寫 0 = 短路。');
         (this.railEls[rail] = this.railEls[rail] || []).push({ dot });
       } else if (ctrl) {
         grp.addEventListener('click', (e) => { e.stopPropagation(); this._ctrlClicked(ctrl); });
-        this._tip(grp, `${spec.id} 第 ${i + 1} 腳 — ${name}`,
-          ctrl === 'RST' ? '接 <b>VCC</b> = 一直被按住重置，程式不會跑。'
-                         : '接 <b>GND</b> = 改讀外部 ROM，這塊板子沒有。');
         (this.ctrlEls[ctrl] = this.ctrlEls[ctrl] || []).push({ dot });
       } else if (jmp) {
         grp.addEventListener('click', (e) => { e.stopPropagation(); this._jumperClicked(jmp); });
-        this._tip(grp, `${spec.id} 第 ${i + 1} 腳 — ${name}`,
-          '短接 = LM35 送進 ADC 的 <b>CH1</b>，拔掉 CH1 讀到 0V。點一下切換。');
         (this.jmpEls[jmp] = this.jmpEls[jmp] || []).push({ x: px, y: py, dot });
       } else if (kind === 'out') {
-        this._tip(grp, `${spec.id} 第 ${i + 1} 腳 — ${name}`,
-          val === 'adcCh1' ? 'ADC 的 CH1 輸入，電壓看「類比與環境」面板。'
-            : `DAC 的 ${val === 'dacA' ? 'CHA' : 'CHB'} 輸出，電壓看「類比與環境」面板。`);
       } else if (kind === 'fixed') {
-        this._tip(grp, `${spec.id} 第 ${i + 1} 腳 — ${name}`,
-          '馬達出廠就插好，不用接。要接的是 JP7 的 B2 B1 A2 A1。');
       } else {
-        this._tip(grp, `${spec.id} 第 ${i + 1} 腳 — ${name}`,
-          kind === 'na' ? `模擬不了：${val}` : (NON_IO[name] || ''));
       }
     });
     return g;
@@ -3054,16 +3003,16 @@ class BoardView {
     el('circle', { cx: P(89), cy: P(239), r: P(7), fill: '#c0392b', stroke: '#7b241c', 'stroke-width': 1.5 }, rst);
     txt(g, P(72), P(260), 'RESET', { 'font-size': 12 });
     rst.addEventListener('click', () => this.runner.reset());
-    this._tip(rst, 'RESET 鈕', '按下 = 從位址 0 重新執行。');
 
     const bz = el('g', {}, g);
     el('circle', { cx: P(72), cy: P(300), r: P(25), fill: C.buzzerRim, stroke: '#0A0D18', 'stroke-width': 2, filter: 'url(#comp)' }, bz);
     el('circle', { cx: P(72), cy: P(300), r: P(18), fill: C.buzzerFace }, bz);
     el('circle', { cx: P(72), cy: P(300), r: P(4.5), fill: '#0a0c16' }, bz);
-    this.buzzRing = el('circle', { cx: P(72), cy: P(300), r: P(29), fill: 'none', stroke: '#ffd166', 'stroke-width': 2.5, opacity: 0 }, bz);
+    this.buzzGlow = el('circle', { cx: P(72), cy: P(300), r: P(58), fill: 'url(#buzzglow)', opacity: 0 }, bz);
+    this.buzzRing = el('circle', { cx: P(72), cy: P(300), r: P(29), fill: 'none', stroke: '#ffe9a8', 'stroke-width': 4, opacity: 0 }, bz);
+    this.buzzRing2 = el('circle', { cx: P(72), cy: P(300), r: P(38), fill: 'none', stroke: '#ffd166', 'stroke-width': 2, opacity: 0 }, bz);
     txt(g, P(96), P(276), 'B1 蜂鳴器 P3.7', { 'font-size': 12 });
     this.buzzFreq = txt(g, P(96), P(286), '', { 'font-size': 12, fill: '#ffd166' });
-    this._tip(bz, '蜂鳴器 B1 — P3.7', '寫 <b>0</b> 響。要有聲音就得讓 P3.7 反覆翻轉。');
 
     const zif = el('g', {}, g);
     el('rect', { x: P(146), y: P(110), width: P(86), height: P(252), rx: 4, fill: 'url(#socket)', stroke: C.socketDark, 'stroke-width': 2, filter: 'url(#comp)' }, zif);
@@ -3077,7 +3026,6 @@ class BoardView {
     el('circle', { cx: P(189), cy: P(356), r: P(4), fill: '#cfcfcf' }, zif);
     txt(zif, P(193), P(232), 'Atmel', { 'font-size': 15, fill: '#D8D8D8', 'text-anchor': 'middle' });
     txt(zif, P(193), P(246), '89S51', { 'font-size': 18, fill: '#eee', 'text-anchor': 'middle', 'font-weight': 'bold' });
-    this._tip(zif, 'AT89S51', '12MHz → 1 個機械週期 = 1 µs。<br>程式 4K、RAM 128 位元組。');
 
     // SW1 指撥開關
     this.dip = [];
@@ -3090,7 +3038,6 @@ class BoardView {
       txt(g, P(x + 3.5), P(101), `${i + 1}`, { 'font-size': 11, fill: '#dbe4ff', 'text-anchor': 'middle' });
       const hit = el('rect', { x: P(x), y: P(73), width: P(7), height: P(21), fill: 'transparent', class: 'clickable' }, g);
       hit.addEventListener('click', () => this.sim.dip.toggle(i));
-      this._tip(hit, `指撥開關 SW1-${i + 1} — P0.${i}`, 'ON 讀到 <b>0</b>，OFF 讀到 <b>1</b>。<br>⚠ 插著 LCM 時要全部撥 OFF。');
       this.dip.push({ knob, on: P(74), off: P(84) });
     }
     txt(g, P(290), P(96), 'SW1', { 'font-size': 12 });
@@ -3100,25 +3047,22 @@ class BoardView {
     txt(g, P(245), P(122), '10K  RP1', { 'font-size': 12, 'text-anchor': 'middle' });
 
     // 類比區
-    this._chip(g, 340, 262, 46, 34, 'MCP3202', 'A/D：CH0 讀 VR1、CH1 讀 LM35。');
-    this._chip(g, 344, 306, 42, 34, 'MCP4822', 'D/A：兩路類比輸出。');
-    this._chip(g, 348, 161, 37, 24, '24LC16B', 'I²C EEPROM。');
+    this._chip(g, 340, 262, 46, 34, 'MCP3202');
+    this._chip(g, 344, 306, 42, 34, 'MCP4822');
+    this._chip(g, 348, 161, 37, 24, '24LC16B');
     const tc74 = el('g', {}, g);
     el('rect', { x: P(407), y: P(172), width: P(25), height: P(43), rx: 2, fill: '#4a4a52', stroke: '#2a2a30' }, tc74);
     txt(g, P(396), P(166), 'U3 TC74', { 'font-size': 12 });
-    this._tip(tc74, 'U3 TC74 數位溫度計', 'I²C 位址 1001000。要先把 JP1 的 SDA / SCL 拉到埠。');
 
     const vr1 = el('g', { class: 'clickable' }, g);
     el('rect', { x: P(376), y: P(258), width: P(27), height: P(38), rx: 2, fill: '#2ec4c4', stroke: '#1a8a8a', 'stroke-width': 1.5 }, vr1);
     el('circle', { cx: P(389.5), cy: P(269), r: P(8), fill: '#d9b23a', stroke: '#8a6a20' }, vr1);
     this.vrKnob = el('rect', { x: P(388.9), y: P(262), width: P(1.2), height: P(7), fill: '#5a4510' }, vr1);
     txt(g, P(376), P(304), 'VR1 20K', { 'font-size': 11 });
-    this._tip(vr1, 'VR1 20K 可變電阻', '接到 ADC 的 <b>CH0</b>，用「類比與環境」的滑桿調。');
 
     const lm35 = el('g', {}, g);
     el('circle', { cx: P(412), cy: P(236), r: P(9), fill: '#141414', stroke: '#000' }, lm35);
     txt(g, P(374), P(234), 'U6 LM35', { 'font-size': 12 });
-    this._tip(lm35, 'U6 LM35 溫度感測器', '10mV/°C，經 JP11 送進 ADC 的 CH1。');
 
     // LCM 模組（插在 JP2 上）
     this.lcmGroup = el('g', {}, g);
@@ -3131,7 +3075,6 @@ class BoardView {
     this.lcmHit = el('rect', { x: P(20), y: P(2), width: P(112), height: P(56), rx: 3, fill: 'transparent', class: 'clickable' }, g);
     const toggleLcm = () => { this.sim.lcd.setAttached(!this.sim.lcd.attached); if (this.onLcmToggle) this.onLcmToggle(this.sim.lcd.attached); this.update(); };
     this.lcmHit.addEventListener('click', toggleLcm);
-    this._tip(this.lcmHit, 'LCM 16×2 字元液晶', '接法焊死：RS=P3.2、R/W=P3.1、EN=P3.0、D0–D7=P0。<br>點一下拔除。');
 
     // 沒插 LCM 時，在它該在的位置畫一個空插槽，點一下就插上
     this.lcmSlot = el('g', { class: 'clickable' }, g);
@@ -3140,8 +3083,6 @@ class BoardView {
     txt(this.lcmSlot, P(76), P(30), 'LCM 16×2', { 'font-size': 13, fill: '#8B95A2', 'text-anchor': 'middle' });
     txt(this.lcmSlot, P(76), P(44), '點一下插到 JP2', { 'font-size': 11, fill: '#6E7783', 'text-anchor': 'middle' });
     this.lcmSlot.addEventListener('click', toggleLcm);
-    this._tip(this.lcmSlot, 'LCM 16×2 字元液晶（未插上）',
-      '點一下插到 JP2。<br>⚠ 插上後 P0 被佔用，SW1 要全部撥 OFF。');
 
     // 八顆 LED
     this.leds = [];
@@ -3152,11 +3093,11 @@ class BoardView {
       const cx = P(57 + i * 16.5), cy = P(368);
       const grp = el('g', {}, g);
       el('circle', { cx, cy, r: P(7), fill: '#5A5410' }, grp);
-      const halo = el('circle', { cx, cy, r: P(13), fill: 'url(#ledglow)', opacity: 0 }, grp);
+      const bloom = el('circle', { cx, cy, r: P(21), fill: 'url(#ledbloom)', opacity: 0 }, grp);
+      const halo = el('circle', { cx, cy, r: P(15), fill: 'url(#ledglow)', opacity: 0 }, grp);
       const led = el('circle', { cx, cy, r: P(5.4), fill: '#C6C42A', stroke: '#7E7C18' }, grp);
       txt(g, cx, P(383), `DS${i + 1}`, { 'font-size': 12, 'text-anchor': 'middle' });
-      this._tip(grp, `LED DS${i + 1} — P1.${i}`, '寫 <b>0</b> 才亮。');
-      this.leds.push({ led, halo });
+      this.leds.push({ led, halo, bloom });
     }
     txt(g, P(48), P(393), 'P1.0', { 'font-size': 12 });
     txt(g, P(158), P(393), 'P1.7', { 'font-size': 12 });
@@ -3165,7 +3106,6 @@ class BoardView {
     // 四顆按鍵
     this.buttons = [];
     const bx = [188, 238, 278, 318];
-    const bhelp = ['⚠ 與 LCM 的 RS 共用 P3.2。', '', '', ''];
     for (let i = 0; i < 4; i++) {
       const x = bx[i], y = 366;
       const b = el('g', { class: 'clickable' }, g);
@@ -3177,7 +3117,6 @@ class BoardView {
       b.addEventListener('mousedown', () => press(1)); b.addEventListener('mouseup', () => press(0)); b.addEventListener('mouseleave', () => press(0));
       b.addEventListener('touchstart', (e) => { e.preventDefault(); press(1); }, { passive: false });
       b.addEventListener('touchend', () => press(0));
-      this._tip(b, `按鍵 ${BUTTONS[i].name} — ${BUTTONS[i].sub}`, `按住讀 <b>0</b>，放開讀 <b>1</b>。${bhelp[i] ? '<br>' + bhelp[i] : ''}`);
       this.buttons.push(cap);
     }
   }
@@ -3214,15 +3153,14 @@ class BoardView {
       this.segs.push(s);
     }
     const segHit = el('rect', { x: P(485), y: P(63), width: P(377), height: P(70), fill: 'transparent' }, g);
-    this._tip(segHit, '八位數七段顯示器（共陽極）', '位選拉低選中該位，段線寫 <b>0</b> 該段亮。<br>八位要輪流掃描，掃太慢會閃。');
 
     // 電晶體、排阻
     for (let i = 0; i < 8; i++)
       el('ellipse', { cx: P(570 + i * 25.4), cy: P(160), rx: P(9), ry: P(11), fill: '#232323', stroke: '#0C0C0C', filter: 'url(#comp)' }, g);
     txt(g, P(560), P(180), '位選電晶體 ×8', { 'font-size': 12 });
 
-    this._chip(g, 545, 236, 76, 30, 'SN74LS138N', '三支腳解出八條位選線。');
-    this._chip(g, 557, 311, 68, 25, 'ULN2803A', '把埠腳的電流放大到推得動馬達。');
+    this._chip(g, 545, 236, 76, 30, 'SN74LS138N');
+    this._chip(g, 557, 311, 68, 25, 'ULN2803A');
     el('rect', { x: P(578), y: P(346), width: P(47), height: P(9), rx: 1.5, fill: '#141414' }, g);
 
     // 電源區
@@ -3240,7 +3178,6 @@ class BoardView {
       this.dots.push(el('circle', { cx: P(771 + c * 15.4), cy: P(149 + r * 15.4), r: P(5.6), fill: C.matrixOff }, g));
     txt(g, P(846), P(138), 'DS3', { 'font-size': 12 });
     const mHit = el('rect', { x: P(763), y: P(141), width: P(122), height: P(119), fill: 'transparent' }, g);
-    this._tip(mHit, '8×8 LED 點矩陣 DS3', '行選線與七段的位選線 <b>共用</b>，一樣要輪流掃描。');
 
     // 4×4 鍵盤
     this.keys = [];
@@ -3257,7 +3194,6 @@ class BoardView {
       k.addEventListener('mousedown', () => press(1)); k.addEventListener('mouseup', () => press(0)); k.addEventListener('mouseleave', () => press(0));
       k.addEventListener('touchstart', (e) => { e.preventDefault(); press(1); }, { passive: false });
       k.addEventListener('touchend', () => press(0));
-      this._tip(k, `按鍵 PB${n}（面板印 ${face[row * 4 + col]}）`, `按下 → R${row} 與 C${col} 短路。`);
       this.keys.push(cap);
     }
     txt(g, P(840), P(364), '鍵盤組', { 'font-size': 15 });
@@ -3276,7 +3212,6 @@ class BoardView {
     el('circle', { cx: mx, cy: my, r: P(17), fill: 'url(#brass)', stroke: '#6D5A1C', 'stroke-width': 2 }, this.rotor);
     el('circle', { cx: mx, cy: my, r: P(7), fill: '#DADADA', stroke: '#9A9A9A' }, this.rotor);
     el('rect', { x: mx - P(2), y: my - P(29), width: P(4), height: P(13), rx: 1.5, fill: '#e74c3c' }, this.rotor);
-    this._tip(g, '步進馬達', '全步 1.8°，一圈 200 步。<br>要接的是 JP7 的 B2 B1 A2 A1，依序通電就轉。');
     this.coilDots = [];
     for (let i = 0; i < 4; i++) {
       const d = el('circle', { cx: P(352 + i * 26), cy: P(146), r: P(4.5), fill: '#333', stroke: '#555' }, g);
@@ -3440,14 +3375,18 @@ class BoardView {
   update() {
     const sim = this.sim;
     for (let i = 0; i < 8; i++) {
-      const b = gamma(sim.leds.duty.smooth[i]), { led, halo } = this.leds[i];
-      led.setAttribute('fill', b > 0.02 ? `rgb(${Math.round(198 + 57 * b)},${Math.round(196 + 54 * b)},${Math.round(42 + 128 * b)})` : '#C6C42A');
-      halo.setAttribute('opacity', (b * 0.75).toFixed(3));
+      const b = gamma(sim.leds.duty.smooth[i]), { led, halo, bloom } = this.leds[i];
+      led.setAttribute('fill', b > 0.02 ? `rgb(${Math.round(198 + 57 * b)},${Math.round(196 + 56 * b)},${Math.round(42 + 150 * b)})` : '#C6C42A');
+      halo.setAttribute('opacity', Math.min(1, b * 1.05).toFixed(3));
+      bloom.setAttribute('opacity', (b * 0.55).toFixed(3));
     }
     for (let i = 0; i < 8; i++) this.dip[i].knob.setAttribute('y', sim.dip.on[i] ? this.dip[i].on : this.dip[i].off);
     for (let i = 0; i < 4; i++) this.buttons[i].setAttribute('fill', sim.buttons.pressed[i] ? '#b9b9b9' : '#5e5e5e');
     const bd = sim.buzzer.activeDuty || 0, f = sim.buzzer.freqEstimate;
-    this.buzzRing.setAttribute('opacity', bd > 0.01 && bd < 0.99 ? 0.9 : 0);
+    const bzOn = bd > 0.01 && bd < 0.99;
+    this.buzzRing.setAttribute('opacity', bzOn ? 1 : 0);
+    this.buzzRing2.setAttribute('opacity', bzOn ? 0.6 : 0);
+    this.buzzGlow.setAttribute('opacity', bzOn ? 1 : 0);
     this.buzzFreq.textContent = f > 20 ? `${Math.round(f)} Hz` : (bd > 0.95 ? '持續導通' : '');
     this.vrKnob.setAttribute('transform', `rotate(${(sim.spi.potVolts / 5 * 270 - 135).toFixed(0)} ${P(389.5)} ${P(269)})`);
 
@@ -3656,7 +3595,7 @@ const { disasm } = __mod("src/cpu/disasm.js");
 const { hex2, hex4, pinName } = __mod("src/board/util.js");
 const { CONNECTORS, DEFAULT_WIRING } = __mod("src/board/wiring.js");
 const h = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
-const LH = 19;                      // CSS .editor 的 line-height
+const LH = 24;                      // CSS .editor 的 line-height
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 // ---------- 暫存器 ----------
@@ -3691,23 +3630,17 @@ class RegistersPanel {
       + flags.map((f, i) => `<i class="${(psw >> (7 - i)) & 1 ? 'on' : ''}">${f}</i>`).join('')
       + `<em>bank ${(psw >> 3) & 3}${c.intHighActive ? ' · ISR(高)' : c.intLowActive ? ' · ISR(低)' : ''}</em></div>`;
 
-    let anyDiff = false;
     for (let p = 0; p < 4; p++) {
       const latch = c.bus.latch[p], pin = c.bus.pins[p];
       let bits = '';
       for (let i = 7; i >= 0; i--) {
         const l = (latch >> i) & 1, q = (pin >> i) & 1;
-        if (l !== q) anyDiff = true;
         bits += `<i class="${l ? '' : 'lo'}${l !== q ? ' diff' : ''}">${l}</i>`;
       }
       html += `<div class="rg-port"><b>P${p}</b><span class="bits">${bits}</span>`
         + `<span class="hex${latch !== pin ? ' split' : ''}">${hex2(latch)}<em>/</em><u>${hex2(pin)}</u></span>`
         + `<span class="note">${PORT_NOTE[p]}</span></div>`;
     }
-    html += anyDiff
-      ? '<div class="rg-legend">格子＝latch（程式寫進去的）；<em>琥珀底線</em>＝腳位實際電位被外面拉走</div>'
-      : '<div class="rg-legend">格子＝latch；目前每一支腳的電位都跟 latch 一樣</div>';
-
     html += '<div class="rg-grid rg-sfr">'
       + this._cell('TMOD', hex2(s[SFR.TMOD - 0x80])) + this._cell('TCON', hex2(s[SFR.TCON - 0x80]))
       + this._cell('TH0:TL0', hex2(s[SFR.TH0 - 0x80]) + hex2(s[SFR.TL0 - 0x80]))
@@ -4726,7 +4659,7 @@ const runner = new Runner(sim, {
       const line = sim.lineOfAddr(sim.cpu.pc);
       source.setCurrent(line, !info.running);
       if (activeTab === 'disasm') disasmP.update();
-      if (activeTab === 'memory') memory.update();
+      memory.update();                       // 常駐在左下角，一直都看得到
       output.setWarnings(sim.warnings);
       showWarnings();
     }
@@ -4868,7 +4801,6 @@ function switchTab(name) {
   for (const t of document.querySelectorAll('.tab')) t.classList.toggle('active', t.id === 'tab-' + name);
   if (name === 'regs') regs.update();
   if (name === 'disasm') disasmP.update();
-  if (name === 'memory') memory.update();
   if (name === 'wave') requestAnimationFrame(() => wave.draw());
 }
 for (const b of document.querySelectorAll('#tabs button')) b.addEventListener('click', () => switchTab(b.dataset.tab));

@@ -32,6 +32,7 @@
     <section id="left">
       <div id="board-wrap"></div>
       <div id="warnings" class="card warn" hidden></div>
+      <div id="mem-dock" class="card"><h3>記憶體</h3><div id="memory"></div></div>
     </section>
 
     <!-- 右邊：程式 -->
@@ -40,7 +41,6 @@
         <button data-tab="source" class="active">原始碼</button>
         <button data-tab="regs">暫存器</button>
         <button data-tab="disasm">反組譯</button>
-        <button data-tab="memory">記憶體</button>
         <button data-tab="wave">波形</button>
         <button data-tab="wiring">接線</button>
         <button data-tab="analog">類比</button>
@@ -50,7 +50,6 @@
       <div id="tab-source" class="tab active"><div id="source"></div></div>
       <div id="tab-regs" class="tab"><div id="regs"></div></div>
       <div id="tab-disasm" class="tab"><div id="disasm"></div></div>
-      <div id="tab-memory" class="tab"><div id="memory"></div></div>
       <div id="tab-wave" class="tab"><div id="wave"></div></div>
       <div id="tab-wiring" class="tab"><div id="wiring"></div></div>
       <div id="tab-analog" class="tab"><div id="analog-panel">
@@ -61,14 +60,6 @@
       </div></div>
       <div id="tab-periph" class="tab"><div id="periph"></div></div>
       <div id="tab-output" class="tab"><div id="output"></div></div>
-      <div id="legend">
-        <span><i style="background:#77DF89"></i>標籤</span>
-        <span><i style="background:#7DC4FF"></i>助憶碼</span>
-        <span><i style="background:#FF8785"></i>偽指令</span>
-        <span><i style="background:#FFAE5D"></i>暫存器 / 位元</span>
-        <span><i style="background:#D7A6FC"></i>立即值</span>
-        <span><i style="background:#839085"></i>註解</span>
-      </div>
     </section>
   </main>
   <div id="drop-hint" hidden>放開以載入檔案</div>
