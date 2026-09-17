@@ -125,7 +125,7 @@ test('各排針的針數與絲印順序都照板子', () => {
   assert.deepEqual(g('JP12').pins.map(r => r[0]), ['CHA', 'GND', 'CHB', 'GND '], 'JP12 是 MCP4822 的兩路輸出');
   assert.equal(g('JP11').pins.length, 4, 'JP11 是四腳（Vo CH1 CH1 GND），不是三腳');
   assert.equal(g('JP6').pins.length, 3, 'JP6 RGB 三支腳');
-  assert.equal(g('JPX').pins.length, 4, 'RESET 旁邊還有一個四腳插座（編號待確認）');
+  assert.equal(g('JP5母座').pins.length, 4, 'RESET 旁邊那個沒印編號的 BT04 母座');
 });
 
 // ---------- 出廠狀態 ----------

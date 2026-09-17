@@ -50,15 +50,15 @@ export const HEADERS = [
   },
   {
     id: 'JP6', side: 'main', title: 'JP6', bare: true, cols: 1, x: 304.5, y: 117, pitch: 9.4, horiz: true, labelSide: 'above',
-    note: 'RGB LED 接頭，實體絲印是 R G B 三支腳。電路圖圖4 上沒有這一顆，用途待查。',
-    pins: [['R', 'na:電路圖圖4 沒有這顆 RGB LED，查不到它接到哪，無法模擬'],
-           ['G', 'na:電路圖圖4 沒有這顆 RGB LED，查不到它接到哪，無法模擬'],
-           ['B', 'na:電路圖圖4 沒有這顆 RGB LED，查不到它接到哪，無法模擬']],
+    note: 'RGB LED 接頭，絲印 R G B 三支腳，旁邊就是那顆透明 RGB LED。電路圖圖4 沒畫這一段，三支腳接到哪個埠仍未知。',
+    pins: [['R', 'na:絲印確認是 RGB LED 的三支腳，但電路圖沒畫、照片也看不出走線，不知道接到哪個埠'],
+           ['G', 'na:絲印確認是 RGB LED 的三支腳，但電路圖沒畫、照片也看不出走線，不知道接到哪個埠'],
+           ['B', 'na:絲印確認是 RGB LED 的三支腳，但電路圖沒畫、照片也看不出走線，不知道接到哪個埠']],
   },
   {
     id: 'JP4', side: 'main', title: 'JP4', bare: true, cols: 1, x: 320.5, y: 133, pitch: 9.5, labelSide: 'right',
     note: 'LCM 型式跳線：接 GND = 英文 16×2，接 VCC = 中文 14432。',
-    pins: [['GND', 'rail:gnd'], ['中', 'na:接 VCC 表示插的是中文 14432 LCM，模擬器只做 16×2 英文'], ['VCC', 'rail:vcc']],
+    pins: [['GND', 'rail:gnd'], ['', 'na:中間是選擇腳：短到 GND = 英文 16×2，短到 VCC = 中文 14432。模擬器只做 16×2 英文'], ['VCC', 'rail:vcc']],
   },
   {
     id: 'JP11', side: 'main', title: 'JP11', titleAt: [402, 302], cols: 1, x: 409, y: 258.5, pitch: 9.5, labelSide: 'right',
@@ -87,10 +87,12 @@ export const HEADERS = [
     pins: [['VCC', 'rail:vcc'], ['RXD', 'P3.0'], ['TXD', 'P3.1'], ['GND', 'rail:gnd']],
   },
   {
-    id: 'JPX', side: 'main', title: '', bare: true, cols: 1, x: 108, y: 231.5, pitch: 9.5, labelSide: 'left',
-    note: '實體板上 JP5 左邊的四腳插座，照片讀不到編號、電路圖也查不到，用途待確認。',
-    pins: [['?', 'na:還沒查出這個插座是什麼，電路圖上找不到'], ['?', 'na:還沒查出這個插座是什麼，電路圖上找不到'],
-           ['?', 'na:還沒查出這個插座是什麼，電路圖上找不到'], ['?', 'na:還沒查出這個插座是什麼，電路圖上找不到']],
+    // RESET 右邊有兩個並排的四腳座：右邊是 JP5 排針（絲印 VCC RxD TxD GND），
+    // 左邊是沒印編號的母座，BT04 模組就插在這裡（對照原廠 1280px 產品照確認）。
+    id: 'JP5母座', side: 'main', title: '', bare: true, cols: 1, x: 108, y: 231.5, pitch: 9.5, labelSide: 'left',
+    note: 'BT04 藍牙模組的四腳母座。模組插這裡，旁邊的 JP5 排針是同一組訊號拉出來給杜邦線用。',
+    pins: [['VCC', 'na:BT04 模組座，與旁邊的 JP5 同一組訊號'], ['RXD', 'na:BT04 模組座，與旁邊的 JP5 同一組訊號'],
+           ['TXD', 'na:BT04 模組座，與旁邊的 JP5 同一組訊號'], ['GND', 'na:BT04 模組座，與旁邊的 JP5 同一組訊號']],
   },
 
   // ================= KDM+ 擴充板 =================

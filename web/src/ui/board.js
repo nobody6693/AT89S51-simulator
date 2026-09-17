@@ -297,7 +297,7 @@ export class BoardView {
     txt(g, P(245), P(122), '10K  RP1', { 'font-size': 12, 'text-anchor': 'middle' });
 
     // 類比區
-    this._chip(g, 340, 262, 46, 34, 'MCP3202', '12 位元 A/D 轉換器，讀 VR1 與 LM35。');
+    this._chip(g, 340, 262, 46, 34, 'MCP3202', 'U5 MCP3202：12 位元 A/D 轉換器，CH0 讀 VR1、CH1 讀 LM35。');
     this._chip(g, 344, 306, 42, 34, 'MCP4822', '12 位元 D/A 轉換器，兩路輸出。');
     this._chip(g, 348, 161, 37, 24, '24LC16B', 'I²C 序列 EEPROM。');
     const tc74 = el('g', {}, g);
@@ -314,8 +314,8 @@ export class BoardView {
 
     const lm35 = el('g', {}, g);
     el('circle', { cx: P(412), cy: P(236), r: P(9), fill: '#141414', stroke: '#000' }, lm35);
-    txt(g, P(374), P(234), 'U5 LM35', { 'font-size': 12 });
-    this._tip(lm35, 'U5 LM35 類比溫度感測器', '輸出 10mV/°C，經 JP11 送進 MCP3202 的 CH1。<br>（電路圖圖5 把它編成 U6，實體絲印是 U5。）');
+    txt(g, P(374), P(234), 'U6 LM35', { 'font-size': 12 });
+    this._tip(lm35, 'U6 LM35 類比溫度感測器', '輸出 10mV/°C，經 JP11 送進 MCP3202（U5）的 CH1。');
 
     // LCM 模組（插在 JP2 上）
     this.lcmGroup = el('g', {}, g);

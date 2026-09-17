@@ -206,7 +206,7 @@ kbd { background: var(--panel2); border: 1px solid var(--border); border-radius:
       <span id="st-pc">PC 0000</span>
       <span id="st-cycles">0 µs</span>
       <span id="st-reason"></span>
-      <span id="st-build">版本 2026/9/17 20:20:54</span>
+      <span id="st-build">版本 2026/9/17 20:40:08</span>
     </div>
   </header>
 
@@ -2451,15 +2451,15 @@ const HEADERS = [
   },
   {
     id: 'JP6', side: 'main', title: 'JP6', bare: true, cols: 1, x: 304.5, y: 117, pitch: 9.4, horiz: true, labelSide: 'above',
-    note: 'RGB LED 接頭，實體絲印是 R G B 三支腳。電路圖圖4 上沒有這一顆，用途待查。',
-    pins: [['R', 'na:電路圖圖4 沒有這顆 RGB LED，查不到它接到哪，無法模擬'],
-           ['G', 'na:電路圖圖4 沒有這顆 RGB LED，查不到它接到哪，無法模擬'],
-           ['B', 'na:電路圖圖4 沒有這顆 RGB LED，查不到它接到哪，無法模擬']],
+    note: 'RGB LED 接頭，絲印 R G B 三支腳，旁邊就是那顆透明 RGB LED。電路圖圖4 沒畫這一段，三支腳接到哪個埠仍未知。',
+    pins: [['R', 'na:絲印確認是 RGB LED 的三支腳，但電路圖沒畫、照片也看不出走線，不知道接到哪個埠'],
+           ['G', 'na:絲印確認是 RGB LED 的三支腳，但電路圖沒畫、照片也看不出走線，不知道接到哪個埠'],
+           ['B', 'na:絲印確認是 RGB LED 的三支腳，但電路圖沒畫、照片也看不出走線，不知道接到哪個埠']],
   },
   {
     id: 'JP4', side: 'main', title: 'JP4', bare: true, cols: 1, x: 320.5, y: 133, pitch: 9.5, labelSide: 'right',
     note: 'LCM 型式跳線：接 GND = 英文 16×2，接 VCC = 中文 14432。',
-    pins: [['GND', 'rail:gnd'], ['中', 'na:接 VCC 表示插的是中文 14432 LCM，模擬器只做 16×2 英文'], ['VCC', 'rail:vcc']],
+    pins: [['GND', 'rail:gnd'], ['', 'na:中間是選擇腳：短到 GND = 英文 16×2，短到 VCC = 中文 14432。模擬器只做 16×2 英文'], ['VCC', 'rail:vcc']],
   },
   {
     id: 'JP11', side: 'main', title: 'JP11', titleAt: [402, 302], cols: 1, x: 409, y: 258.5, pitch: 9.5, labelSide: 'right',
@@ -2488,10 +2488,12 @@ const HEADERS = [
     pins: [['VCC', 'rail:vcc'], ['RXD', 'P3.0'], ['TXD', 'P3.1'], ['GND', 'rail:gnd']],
   },
   {
-    id: 'JPX', side: 'main', title: '', bare: true, cols: 1, x: 108, y: 231.5, pitch: 9.5, labelSide: 'left',
-    note: '實體板上 JP5 左邊的四腳插座，照片讀不到編號、電路圖也查不到，用途待確認。',
-    pins: [['?', 'na:還沒查出這個插座是什麼，電路圖上找不到'], ['?', 'na:還沒查出這個插座是什麼，電路圖上找不到'],
-           ['?', 'na:還沒查出這個插座是什麼，電路圖上找不到'], ['?', 'na:還沒查出這個插座是什麼，電路圖上找不到']],
+    // RESET 右邊有兩個並排的四腳座：右邊是 JP5 排針（絲印 VCC RxD TxD GND），
+    // 左邊是沒印編號的母座，BT04 模組就插在這裡（對照原廠 1280px 產品照確認）。
+    id: 'JP5母座', side: 'main', title: '', bare: true, cols: 1, x: 108, y: 231.5, pitch: 9.5, labelSide: 'left',
+    note: 'BT04 藍牙模組的四腳母座。模組插這裡，旁邊的 JP5 排針是同一組訊號拉出來給杜邦線用。',
+    pins: [['VCC', 'na:BT04 模組座，與旁邊的 JP5 同一組訊號'], ['RXD', 'na:BT04 模組座，與旁邊的 JP5 同一組訊號'],
+           ['TXD', 'na:BT04 模組座，與旁邊的 JP5 同一組訊號'], ['GND', 'na:BT04 模組座，與旁邊的 JP5 同一組訊號']],
   },
 
   // ================= KDM+ 擴充板 =================
@@ -2871,7 +2873,7 @@ class BoardView {
     txt(g, P(245), P(122), '10K  RP1', { 'font-size': 12, 'text-anchor': 'middle' });
 
     // 類比區
-    this._chip(g, 340, 262, 46, 34, 'MCP3202', '12 位元 A/D 轉換器，讀 VR1 與 LM35。');
+    this._chip(g, 340, 262, 46, 34, 'MCP3202', 'U5 MCP3202：12 位元 A/D 轉換器，CH0 讀 VR1、CH1 讀 LM35。');
     this._chip(g, 344, 306, 42, 34, 'MCP4822', '12 位元 D/A 轉換器，兩路輸出。');
     this._chip(g, 348, 161, 37, 24, '24LC16B', 'I²C 序列 EEPROM。');
     const tc74 = el('g', {}, g);
@@ -2888,8 +2890,8 @@ class BoardView {
 
     const lm35 = el('g', {}, g);
     el('circle', { cx: P(412), cy: P(236), r: P(9), fill: '#141414', stroke: '#000' }, lm35);
-    txt(g, P(374), P(234), 'U5 LM35', { 'font-size': 12 });
-    this._tip(lm35, 'U5 LM35 類比溫度感測器', '輸出 10mV/°C，經 JP11 送進 MCP3202 的 CH1。<br>（電路圖圖5 把它編成 U6，實體絲印是 U5。）');
+    txt(g, P(374), P(234), 'U6 LM35', { 'font-size': 12 });
+    this._tip(lm35, 'U6 LM35 類比溫度感測器', '輸出 10mV/°C，經 JP11 送進 MCP3202（U5）的 CH1。');
 
     // LCM 模組（插在 JP2 上）
     this.lcmGroup = el('g', {}, g);
