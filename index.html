@@ -206,7 +206,7 @@ kbd { background: var(--panel2); border: 1px solid var(--border); border-radius:
       <span id="st-pc">PC 0000</span>
       <span id="st-cycles">0 µs</span>
       <span id="st-reason"></span>
-      <span id="st-build">版本 2026/9/17 19:20:44</span>
+      <span id="st-build">版本 2026/9/17 19:25:23</span>
     </div>
   </header>
 
@@ -3301,6 +3301,18 @@ class BuzzerAudio {
       try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
     }
     if (this.ctx.state === 'suspended') { try { this.ctx.resume(); } catch (e) {} }
+    // iOS 光 resume() 還不算解鎖：必須在手勢裡真的啟動一個音源，輸出才會通。
+    // 播一個 1 個取樣點的無聲緩衝就夠了，使用者完全聽不到。
+    if (!this._unlocked) {
+      try {
+        const b = this.ctx.createBuffer(1, 1, 22050);
+        const src = this.ctx.createBufferSource();
+        src.buffer = b;
+        src.connect(this.ctx.destination);
+        src.start(0);
+        this._unlocked = true;
+      } catch (e) {}
+    }
     return true;
   }
 
@@ -4659,10 +4671,10 @@ runner.speed = 1;      // 永遠即時，跟真的板子一樣
     await audio.enable(true);
     if (audio.ctx && audio.mode === 'osc') $('#st-reason').textContent = '這個環境擋掉了 AudioWorklet，音效改用方波振盪器';
   };
-  const once = () => { window.removeEventListener('keydown', once); kick(); };
-  window.addEventListener('keydown', once);
-  // 每次點畫面都順手解鎖一次：iOS 切到背景再回來會把 AudioContext 掛起
-  window.addEventListener('pointerdown', () => { if ($('#chk-audio').checked) { audio.unlock(); kick(); } });
+  // 每一次手勢都先同步解鎖（iOS 切到背景回來會把 AudioContext 掛起），再補跑一次 enable。
+  // 解鎖一定要在同一個 tick 裡完成，所以 unlock() 直接呼叫、不能等 kick() 的 await。
+  const onGesture = () => { if (!$('#chk-audio').checked) return; audio.unlock(); kick(); };
+  for (const ev of ['pointerdown', 'touchend', 'keydown']) window.addEventListener(ev, onGesture);
 }
 $('#chk-audio').addEventListener('change', async (e) => {
   await audio.enable(e.target.checked);

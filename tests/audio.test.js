@@ -84,3 +84,24 @@ test('iOS：AudioContext 必須在手勢當下同步建立並 resume', async () 
   assert.ok(seq.indexOf('addModule') > seq.indexOf('resume'), 'worklet 載入要排在解鎖之後');
   assert.equal(a.enabled, true);
 });
+
+test('iOS：解鎖時必須真的啟動一個音源（光 resume 不夠）', async () => {
+  const started = [];
+  globalThis.AudioContext = class {
+    constructor() { this.state = 'suspended'; this.sampleRate = 48000; this.destination = {}; this.currentTime = 0;
+      this.audioWorklet = { addModule: async () => { throw new Error('x'); } }; }
+    async resume() { this.state = 'running'; }
+    createBuffer(ch, len, sr) { return { ch, len, sr }; }
+    createBufferSource() { return { buffer: null, connect() {}, start(t) { started.push(t); } }; }
+    createOscillator() { return { type: '', frequency: { value: 0, setTargetAtTime() {} }, start() {}, connect: (x) => x }; }
+    createGain() { return { gain: { value: 0, setTargetAtTime(v) { this.value = v; } }, connect: (x) => x }; }
+  };
+  globalThis.window.AudioContext = globalThis.AudioContext;
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: {} });
+
+  const a = new BuzzerAudio();
+  a.unlock();
+  assert.deepEqual(started, [0], '第一次解鎖要播一個無聲緩衝，否則 iOS 不會真的打開輸出');
+  a.unlock(); a.unlock();
+  assert.equal(started.length, 1, '解鎖過就不用再播，不要每次點畫面都建節點');
+});

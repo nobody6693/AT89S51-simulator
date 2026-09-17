@@ -28,6 +28,18 @@ export class BuzzerAudio {
       try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
     }
     if (this.ctx.state === 'suspended') { try { this.ctx.resume(); } catch (e) {} }
+    // iOS 光 resume() 還不算解鎖：必須在手勢裡真的啟動一個音源，輸出才會通。
+    // 播一個 1 個取樣點的無聲緩衝就夠了，使用者完全聽不到。
+    if (!this._unlocked) {
+      try {
+        const b = this.ctx.createBuffer(1, 1, 22050);
+        const src = this.ctx.createBufferSource();
+        src.buffer = b;
+        src.connect(this.ctx.destination);
+        src.start(0);
+        this._unlocked = true;
+      } catch (e) {}
+    }
     return true;
   }
 

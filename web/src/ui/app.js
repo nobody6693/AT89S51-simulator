@@ -268,10 +268,10 @@ runner.speed = 1;      // 永遠即時，跟真的板子一樣
     await audio.enable(true);
     if (audio.ctx && audio.mode === 'osc') $('#st-reason').textContent = '這個環境擋掉了 AudioWorklet，音效改用方波振盪器';
   };
-  const once = () => { window.removeEventListener('keydown', once); kick(); };
-  window.addEventListener('keydown', once);
-  // 每次點畫面都順手解鎖一次：iOS 切到背景再回來會把 AudioContext 掛起
-  window.addEventListener('pointerdown', () => { if ($('#chk-audio').checked) { audio.unlock(); kick(); } });
+  // 每一次手勢都先同步解鎖（iOS 切到背景回來會把 AudioContext 掛起），再補跑一次 enable。
+  // 解鎖一定要在同一個 tick 裡完成，所以 unlock() 直接呼叫、不能等 kick() 的 await。
+  const onGesture = () => { if (!$('#chk-audio').checked) return; audio.unlock(); kick(); };
+  for (const ev of ['pointerdown', 'touchend', 'keydown']) window.addEventListener(ev, onGesture);
 }
 $('#chk-audio').addEventListener('change', async (e) => {
   await audio.enable(e.target.checked);
