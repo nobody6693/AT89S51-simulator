@@ -58,8 +58,15 @@ export const EXAMPLE_WIRING = {
   '06': { enabled: { spi: true }, spiSck: 'P1.0', spiSdi: 'P1.1', spiSdo: 'P1.2', adcCs: 'P1.3', dacCs: 'P1.4', dacLd: null },
   '07': { enabled: { i2c: true }, sda: 'P1.6', scl: 'P1.7' },
   '08': { enabled: {} },
+  // 組語範例照完整檔名查，不像舊的 C 範例是用開頭兩位數字編號
+  'CH2-7-4 演奏樂曲與燈光律動.asm': {
+    enabled: { seg7: true, matrix: true, stepper: true },
+    seg: P8(0), digit: P8(2), matrixRow: P8(1), digitMode: 'direct',
+    stepper: ['P3.3', 'P3.4', 'P3.5', 'P3.6'],
+  },
 };
 export function wiringForExample(name) {
+  if (EXAMPLE_WIRING[name]) return EXAMPLE_WIRING[name];
   const m = /^(\d\d)/.exec(name || '');
   return m ? EXAMPLE_WIRING[m[1]] || null : null;
 }

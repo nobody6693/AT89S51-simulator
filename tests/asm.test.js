@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { assemble } from '../web/src/asm/assembler.js';
 import { Sim } from '../web/src/sim.js';
+import { wiringForExample } from '../web/src/board/wiring.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 globalThis.performance = globalThis.performance || { now: () => Date.now() };
@@ -286,6 +287,100 @@ test('思考題 2-7-3：走到最右邊(P1.7)嗶 2 聲、回到最左邊(P1.0)�
     if (i === 0 || i === 3) assert.ok(g < 300000, `最右邊那組應是連著的兩聲，實際間隔 ${(g / 1000).toFixed(0)}ms`);
     else assert.ok(g > 700000, `第 ${i + 2} 聲前應隔著整段 LED 移動，實際 ${(g / 1000).toFixed(0)}ms`);
   });
+});
+
+const SONG = 'CH2-7-4 演奏樂曲與燈光律動.asm';
+// 樂譜（實音）：第 1~6 小節是兩小節一組重複三次，第 7~8 小節是加密版
+const M1 = ['F5', 'F#4', 'F4', 'Gb3'];
+const M2 = ['F3', 'F4', 'Gb3', 'F3', 'Gb3', 'Eb4'];
+const SCORE = [...M1, ...M2, ...M1, ...M2, ...M1, ...M2,
+  'F5', 'F5', 'F#4', 'F#4', 'F4', 'F4', 'Gb3', 'Gb3',
+  'F3', 'F4', 'Gb3', 'F3', 'Gb3', 'Eb4', 'Eb4'];
+const HZ = { F5: 698.5, 'F#4': 370.0, F4: 349.2, Gb3: 185.0, F3: 174.6, Eb4: 311.1 };
+// 音高代號 → 燈條圖樣（低態亮），要跟 .asm 裡的 BARS 表一致
+const BAR = { F5: 0x00, 'F#4': 0xC0, F4: 0xE0, Gb3: 0xFC, F3: 0xFE, Eb4: 0xF8 };
+
+function songSim() {
+  const r = build(asmOf(SONG));
+  const s = new Sim();
+  s.wiring.set(wiringForExample(SONG));
+  s.load({ hex: r.hex, lines: r.lines, symbols: r.symbols, name: SONG });
+  return s;
+}
+// 把蜂鳴器腳位的翻轉事件切成一個個「音」：靜音超過 30ms 就算換音
+function playNotes(s, us) {
+  const evs = [];
+  s.buzzer.events.length = 0;
+  while (s.cpu.cycles < us) { s.cpu.run(20000); for (const e of s.buzzer.frame(s.cpu.cycles)) evs.push(e); }
+  const notes = [];
+  let cur = null;
+  for (let i = 1; i < evs.length; i++) {
+    const gap = evs[i][0] - evs[i - 1][0];
+    if (gap > 30000 || !cur) { if (cur && cur.n > 3) notes.push(cur); cur = { t0: evs[i][0], n: 0, sum: 0 }; }
+    if (gap <= 30000) { cur.n++; cur.sum += gap; }
+  }
+  if (cur && cur.n > 3) notes.push(cur);
+  return notes.map((n) => ({ t0: n.t0, hz: 5e5 / (n.sum / n.n) }));
+}
+
+test('2-7-4 演奏樂曲：音高與節拍對得上樂譜，而且會自動循環', () => {
+  const notes = playNotes(songSim(), 26e6);
+  assert.ok(notes.length > SCORE.length,
+    `26 秒內應放完一輪(${SCORE.length} 個音)並開始重來，實際 ${notes.length}`);
+  SCORE.forEach((name, i) => {
+    const cents = 1200 * Math.log2(notes[i].hz / HZ[name]);
+    assert.ok(Math.abs(cents) < 20,
+      `第 ${i + 1} 個音應是 ${name}(${HZ[name]}Hz)，實際 ${notes[i].hz.toFixed(1)}Hz，差 ${cents.toFixed(0)} 音分`);
+  });
+  const loop = 1200 * Math.log2(notes[SCORE.length].hz / HZ.F5);
+  assert.ok(Math.abs(loop) < 20, '放完應該無縫從頭再來');
+  // ♩=162 → 四分音符 370ms、八分音符 185ms
+  const q = (notes[1].t0 - notes[0].t0) / 1000;      // 第 1 小節都是四分音符
+  assert.ok(Math.abs(q - 370.4) < 11, `四分音符應約 370ms，實際 ${q.toFixed(0)}ms`);
+  const e = (notes[5].t0 - notes[4].t0) / 1000;      // 第 2 小節開頭是八分音符
+  assert.ok(Math.abs(e - 185.2) < 6, `八分音符應約 185ms，實際 ${e.toFixed(0)}ms`);
+});
+
+test('2-7-4 燈光：燈條高度跟著音高走，斷奏的靜音段整排熄掉', () => {
+  const s = songSim();
+  const seen = new Map();
+  let segLit = 0, matrixMax = 0;
+  while (s.cpu.cycles < 6e6) {
+    s.cpu.run(20000);
+    const v = s.bus.latch[1];
+    seen.set(v, (seen.get(v) || 0) + 1);
+    const f = s.display.frame();
+    segLit = Math.max(segLit, f.seg.filter((d) => d > 0.02).length);
+    matrixMax = Math.max(matrixMax, f.matrix.filter((d) => d > 0.02).length);
+  }
+  // 主板 8 顆 LED 只會出現「六種燈條 + 全暗」這七個值，不會有別的
+  const ok = new Set([...Object.values(BAR), 0xFF]);
+  for (const v of seen.keys()) {
+    assert.ok(ok.has(v), `P1 出現了不該有的值 ${v.toString(16).toUpperCase()}H`);
+  }
+  assert.ok(seen.get(0xFF) > 0, '斷奏的靜音段主板 LED 應該真的滅掉');
+  for (const name of M1) {
+    assert.ok(seen.has(BAR[name]), `第 1 小節的 ${name} 應該把燈條設成 ${BAR[name].toString(16).toUpperCase()}H`);
+  }
+  assert.ok(segLit >= 8, `七段應該有在掃(八位數各亮一段)，實際最多只亮 ${segLit} 段`);
+  assert.ok(matrixMax >= 32, `LED 陣列應該顯示整條橫帶，實際最多只亮 ${matrixMax} 點`);
+});
+
+test('2-7-4 馬達：跟著節奏一步一步走，高音正轉、低音反轉，不失步', () => {
+  const s = songSim();
+  let fwd = 0, rev = 0, last = 0;
+  const seenAngles = [];
+  while (s.cpu.cycles < 6e6) {
+    s.cpu.run(5000);
+    const a = s.stepper.angle;
+    if (a > last) fwd++; else if (a < last) rev++;
+    seenAngles.push(a);
+    last = a;
+  }
+  assert.equal(s.stepper.missed, 0, '相位順序若對，就不該有失步');
+  assert.ok(fwd > 20 && rev > 20, `高音正轉、低音反轉都要看得到，實際 正 ${fwd} / 反 ${rev}`);
+  const swing = Math.max(...seenAngles) - Math.min(...seenAngles);
+  assert.ok(swing > 60, `馬達應該明顯地來回擺動，實際只有 ${swing.toFixed(0)} 度`);
 });
 
 test('web/src/programs.js 與 examples/asm 完全同步', async () => {

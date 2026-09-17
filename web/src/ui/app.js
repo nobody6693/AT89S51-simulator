@@ -19,7 +19,7 @@ import { BuzzerAudio } from './audio.js';
 import { RegistersPanel, EditorPanel, DisasmPanel, MemoryPanel, WavePanel, PeriphPanel, WiringPanel, OutputPanel } from './panels.js';
 import { hex2, hex4 } from '../board/util.js';
 import { PROGRAMS } from '../programs.js';
-import { DEFAULT_WIRING } from '../board/wiring.js';
+import { DEFAULT_WIRING, wiringForExample } from '../board/wiring.js';
 import { assemble } from '../asm/assembler.js';
 
 const byName = new Map(PROGRAMS.map(p => [p.name, p]));
@@ -297,9 +297,12 @@ function applyPendingWiring() {
   pendingWiring = null; wiringApi.onWiringChanged(); showWarnings();
 }
 async function loadExample(n) {
-  pendingWiring = null;      // 課本組語範例只用主板，不需要 KDM+ 接線
+  pendingWiring = null;
   const p = byName.get(n);
   if (!p) return;
+  // 有些範例要用到 KDM+，接線跟著範例走；沒指定的就恢復成出廠狀態(一條線都沒接)
+  sim.wiring.set(wiringForExample(n) || DEFAULT_WIRING);
+  wiringApi.onWiringChanged(); wiring.build(); showWarnings();
   const src = p.source;
   if (/\.(hex|ihx)$/i.test(n)) loadHexText(src, n); else await compileAndLoad(src, n);
 }
