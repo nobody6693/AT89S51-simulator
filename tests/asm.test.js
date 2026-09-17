@@ -437,6 +437,34 @@ test('floods：主板 P1 燈條跟著音高走，休止符與音尾會熄掉', (
     `P1 出現了不該有的值 ${v.toString(16).toUpperCase()}H`);
 });
 
+// ==== Alicia.asm：由 MIDI 轉出來的單音旋律，整首 193.7 秒 ====
+const ALICIA_HZ = { C6: 1046.5, G5: 784.0, F5: 698.5, 'A#5': 932.3, 'D#5': 622.3, 'G#4': 415.3, D5: 587.3, G4: 392.0, F3: 174.6 };
+// 樂譜開頭 16 個音與長度(ms)：SONG 表前兩列的代號對回 TONES 表
+const ALICIA_HEAD = [
+  ['C6', 400], ['G5', 400], ['F5', 1600], ['C6', 400], ['A#5', 400], ['D#5', 1600],
+  ['G5', 400], ['F5', 400], ['G#4', 1600], ['D#5', 400], ['D5', 400], ['G4', 400],
+  ['D#5', 400], ['D5', 400], ['D#5', 400], ['F3', 70],   // D#5 之後有 50ms 休止符
+];
+
+test('Alicia：組得進 4KB，開頭的音高與音長對得上樂譜', () => {
+  const r = build(asmOf('Alicia.asm'));
+  assert.ok(r.codeBytes <= 4096, `程式應塞得進 4KB，實際 ${r.codeBytes} 位元組`);
+  const s = new Sim();
+  s.load({ hex: r.hex, lines: r.lines, symbols: r.symbols, name: 'Alicia.asm' });
+  const notes = playNotesTight(s, 10e6);
+  assert.ok(notes.length >= ALICIA_HEAD.length, `10 秒內至少該有 ${ALICIA_HEAD.length} 個音，實際 ${notes.length}`);
+  ALICIA_HEAD.forEach(([name, ms], i) => {
+    const cents = 1200 * Math.log2(notes[i].hz / ALICIA_HZ[name]);
+    assert.ok(Math.abs(cents) < 20,
+      `第 ${i + 1} 個音應是 ${name}(${ALICIA_HZ[name]}Hz)，實際 ${notes[i].hz.toFixed(1)}Hz，差 ${cents.toFixed(0)} 音分`);
+    if (i + 1 < ALICIA_HEAD.length - 1) {          // 最後一個前面隔著休止符，不比間隔
+      const d = (notes[i + 1].t0 - notes[i].t0) / 1000;
+      // 每個 1ms 單位重新裝填 Timer1 都會多幾個機械週期，長音會累積約 0.75% 的漂移
+      assert.ok(Math.abs(d - ms) < 8 + ms * 0.01, `第 ${i + 1} 個音(${name})應長 ${ms}ms，實際到下一個音隔 ${d.toFixed(0)}ms`);
+    }
+  });
+});
+
 test('web/src/programs.js 與 examples/asm 完全同步', async () => {
   // 測試讀的是 examples/asm/*.asm，瀏覽器跑的卻是 programs.js 裡的副本。
   // 曾經發生「改了 .asm、測試全過、網頁上還是舊行為」——這一項就是擋這個。
