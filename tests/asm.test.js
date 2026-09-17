@@ -384,7 +384,8 @@ test('2-7-4 馬達：跟著節奏一步一步走，高音正轉、低音反轉�
 });
 
 // ==== floods.asm：由 MIDI 轉出來的單音旋律 ====
-// 音與音之間只留 6ms 靜音，所以切音的門檻要比 playNotes 的 30ms 小
+// 音與音之間只留 6ms 靜音，所以切音的門檻要比 playNotes 的 30ms 小；
+// 但又得比最低音的半週期長(低八度版的 G#2 是 4.8ms)，取 5.5ms
 function playNotesTight(s, us) {
   const evs = [];
   s.buzzer.events.length = 0;
@@ -393,8 +394,8 @@ function playNotesTight(s, us) {
   let cur = null;
   for (let i = 1; i < evs.length; i++) {
     const gap = evs[i][0] - evs[i - 1][0];
-    if (gap > 4000 || !cur) { if (cur && cur.n > 3) notes.push(cur); cur = { t0: evs[i][0], n: 0, sum: 0 }; }
-    if (gap <= 4000) { cur.n++; cur.sum += gap; }
+    if (gap > 5500 || !cur) { if (cur && cur.n > 3) notes.push(cur); cur = { t0: evs[i][0], n: 0, sum: 0 }; }
+    if (gap <= 5500) { cur.n++; cur.sum += gap; }
   }
   if (cur && cur.n > 3) notes.push(cur);
   return notes.map((n) => ({ t0: n.t0, hz: 5e5 / (n.sum / n.n) }));
@@ -434,6 +435,19 @@ test('floods：主板 P1 燈條跟著音高走，休止符與音尾會熄掉', (
   assert.ok(seen.has(0xFF), '每個音尾巴的靜音段主板 LED 應該滅掉');
   for (const v of seen) assert.ok(v === 0xFF || [0xFE, 0xFC, 0xF8, 0xF0, 0xE0, 0xC0, 0x80, 0x00].includes(v),
     `P1 出現了不該有的值 ${v.toString(16).toUpperCase()}H`);
+});
+
+test('floods 低八度：樂譜一樣，每個音都剛好低一個八度', () => {
+  const hi = playNotesTight(simOf('floods.asm'), 6e6);
+  const lo = playNotesTight(simOf('floods 低八度.asm'), 6e6);
+  assert.ok(lo.length >= FLOODS_HEAD.length, `6 秒內至少該有 ${FLOODS_HEAD.length} 個音，實際 ${lo.length}`);
+  FLOODS_HEAD.forEach((name, i) => {
+    const cents = 1200 * Math.log2(lo[i].hz / hi[i].hz);
+    assert.ok(Math.abs(cents + 1200) < 20,
+      `第 ${i + 1} 個音(${name})應比原版低 1200 音分，實際 ${cents.toFixed(0)}`);
+    const dt = Math.abs(lo[i].t0 - hi[i].t0) / 1000;
+    assert.ok(dt < 5, `第 ${i + 1} 個音的起始時間應一致，差了 ${dt.toFixed(1)}ms`);
+  });
 });
 
 test('web/src/programs.js 與 examples/asm 完全同步', async () => {
