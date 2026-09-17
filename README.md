@@ -19,7 +19,7 @@ KDM+：八位數七段顯示器、8×8 點矩陣、4×4 鍵盤、步進馬達、
 ## 開發
 
 ```bash
-npm test                        # 82 項
+npm test                        # 89 項
 node tools/build-single.mjs     # 打包成單一 HTML（dist/ 與 index.html）
 ```
 

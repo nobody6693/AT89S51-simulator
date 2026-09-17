@@ -383,6 +383,59 @@ test('2-7-4 馬達：跟著節奏一步一步走，高音正轉、低音反轉�
   assert.ok(swing > 60, `馬達應該明顯地來回擺動，實際只有 ${swing.toFixed(0)} 度`);
 });
 
+// ==== floods.asm：由 MIDI 轉出來的單音旋律 ====
+// 音與音之間只留 6ms 靜音，所以切音的門檻要比 playNotes 的 30ms 小
+function playNotesTight(s, us) {
+  const evs = [];
+  s.buzzer.events.length = 0;
+  while (s.cpu.cycles < us) { s.cpu.run(20000); for (const e of s.buzzer.frame(s.cpu.cycles)) evs.push(e); }
+  const notes = [];
+  let cur = null;
+  for (let i = 1; i < evs.length; i++) {
+    const gap = evs[i][0] - evs[i - 1][0];
+    if (gap > 4000 || !cur) { if (cur && cur.n > 3) notes.push(cur); cur = { t0: evs[i][0], n: 0, sum: 0 }; }
+    if (gap <= 4000) { cur.n++; cur.sum += gap; }
+  }
+  if (cur && cur.n > 3) notes.push(cur);
+  return notes.map((n) => ({ t0: n.t0, hz: 5e5 / (n.sum / n.n) }));
+}
+const FLOODS_HZ = { F4: 349.2, C5: 523.3, G5: 784.0, F5: 698.5, 'C#4': 277.2, 'G#4': 415.3, 'D#5': 622.3, 'C#5': 554.4, 'G#3': 207.7, 'D#4': 311.1, 'A#4': 466.2 };
+// 樂譜開頭 16 個音（SONG 表前兩列的代號對回 TONES 表）
+const FLOODS_HEAD = ['F4', 'C5', 'G5', 'C5', 'G5', 'F5', 'C#4', 'G#4', 'D#5', 'G#4', 'D#5', 'C#5', 'G#3', 'D#4', 'A#4', 'D#4'];
+
+test('floods：開頭的音高與節拍對得上樂譜，同音之間分得開，放完會自動重來', () => {
+  const s = simOf('floods.asm');
+  const notes = playNotesTight(s, 46.5e6);       // 整首 45.2 秒，多跑一點看它有沒有重來
+  // 樂譜 207 筆裡有 1 筆是休止符，真正會響的是 206 個
+  assert.ok(notes.length > 206, `45 秒內應放完 206 個音並開始重來，實際 ${notes.length}`);
+  FLOODS_HEAD.forEach((name, i) => {
+    const cents = 1200 * Math.log2(notes[i].hz / FLOODS_HZ[name]);
+    assert.ok(Math.abs(cents) < 20,
+      `第 ${i + 1} 個音應是 ${name}(${FLOODS_HZ[name]}Hz)，實際 ${notes[i].hz.toFixed(1)}Hz，差 ${cents.toFixed(0)} 音分`);
+  });
+  // 樂譜開頭每個音都是 23 個單位 = 230ms
+  for (let i = 1; i < FLOODS_HEAD.length; i++) {
+    const d = (notes[i].t0 - notes[i - 1].t0) / 1000;
+    assert.ok(Math.abs(d - 230) < 8, `第 ${i} → ${i + 1} 個音的間隔應約 230ms，實際 ${d.toFixed(0)}ms`);
+  }
+  // 第 207 個音是從頭再來的 F4
+  const loop = 1200 * Math.log2(notes[206].hz / FLOODS_HZ.F4);
+  assert.ok(Math.abs(loop) < 20, `放完應該從頭再來(F4)，實際 ${notes[206].hz.toFixed(1)}Hz`);
+});
+
+test('floods：主板 P1 燈條跟著音高走，休止符與音尾會熄掉', () => {
+  const s = simOf('floods.asm');
+  const seen = new Set();
+  while (s.cpu.cycles < 4e6) { s.cpu.run(5000); seen.add(s.bus.latch[1]); }
+  // 開頭 16 個音用到的燈條：F4=FC C5=F0 G5=C0 F5=E0 C#4=FE G#4=FC D#5=E0 C#5=F0 G#3=FE D#4=FE A#4=F8
+  for (const v of [0xFE, 0xFC, 0xF8, 0xF0, 0xE0, 0xC0]) {
+    assert.ok(seen.has(v), `燈條應出現 ${v.toString(16).toUpperCase()}H`);
+  }
+  assert.ok(seen.has(0xFF), '每個音尾巴的靜音段主板 LED 應該滅掉');
+  for (const v of seen) assert.ok(v === 0xFF || [0xFE, 0xFC, 0xF8, 0xF0, 0xE0, 0xC0, 0x80, 0x00].includes(v),
+    `P1 出現了不該有的值 ${v.toString(16).toUpperCase()}H`);
+});
+
 test('web/src/programs.js 與 examples/asm 完全同步', async () => {
   // 測試讀的是 examples/asm/*.asm，瀏覽器跑的卻是 programs.js 裡的副本。
   // 曾經發生「改了 .asm、測試全過、網頁上還是舊行為」——這一項就是擋這個。
