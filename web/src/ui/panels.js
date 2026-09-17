@@ -5,32 +5,66 @@ import { hex2, hex4, pinName } from '../board/util.js';
 import { CONNECTORS, DEFAULT_WIRING } from '../board/wiring.js';
 
 const h = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
-const LH = 18;                      // CSS .editor 的 line-height
+const LH = 19;                      // CSS .editor 的 line-height
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 // ---------- 暫存器 ----------
+// 埠不再印成 "P0 FF/FF latch/pin" —— 那一行看不出差在哪，還會斷行。
+// 改成八格位元：格子是 latch（程式寫進去的），腳位被外面拉走的位元鑲琥珀底線。
+const PORT_NOTE = ['SW1 指撥 / LCM D0–D7', 'LED DS1–DS8', '按鍵 PB3 PB4', '蜂鳴器 / LCM / PB1 PB2'];
+
 export class RegistersPanel {
   constructor(root, sim) { this.root = root; this.sim = sim; this.prev = {}; }
+  _cell(k, v, hot) {
+    const ch = this.prev[k] !== undefined && this.prev[k] !== v;
+    this.prev[k] = v;
+    return `<div class="rg${ch ? ' changed' : ''}${hot ? ' hot' : ''}"><b>${k}</b><span>${v}</span></div>`;
+  }
   update() {
     const c = this.sim.cpu, s = c.sfr;
     const psw = c.readDirect(SFR.PSW);
-    const rows = [
-      ['PC', hex4(c.pc)], ['A', hex2(c.acc)], ['B', hex2(c.b)], ['SP', hex2(c.sp)], ['DPTR', hex4(c.dptr)], ['PSW', hex2(psw)],
-      ['R0', hex2(c.getR(0))], ['R1', hex2(c.getR(1))], ['R2', hex2(c.getR(2))], ['R3', hex2(c.getR(3))],
-      ['R4', hex2(c.getR(4))], ['R5', hex2(c.getR(5))], ['R6', hex2(c.getR(6))], ['R7', hex2(c.getR(7))],
-      ['TCON', hex2(s[SFR.TCON - 0x80])], ['TMOD', hex2(s[SFR.TMOD - 0x80])], ['TH0:TL0', hex2(s[SFR.TH0 - 0x80]) + hex2(s[SFR.TL0 - 0x80])], ['TH1:TL1', hex2(s[SFR.TH1 - 0x80]) + hex2(s[SFR.TL1 - 0x80])],
-      ['IE', hex2(s[SFR.IE - 0x80])], ['IP', hex2(s[SFR.IP - 0x80])], ['SCON', hex2(s[SFR.SCON - 0x80])], ['SBUF', hex2(s[SFR.SBUF - 0x80])],
-      ['P0 latch/pin', hex2(c.bus.latch[0]) + '/' + hex2(c.bus.pins[0])], ['P1 latch/pin', hex2(c.bus.latch[1]) + '/' + hex2(c.bus.pins[1])],
-      ['P2 latch/pin', hex2(c.bus.latch[2]) + '/' + hex2(c.bus.pins[2])], ['P3 latch/pin', hex2(c.bus.latch[3]) + '/' + hex2(c.bus.pins[3])],
-    ];
     let html = '';
-    for (const [k, v] of rows) {
-      const ch = this.prev[k] !== undefined && this.prev[k] !== v;
-      html += `<div class="r${ch ? ' changed' : ''}"><b>${k}</b><span>${v}</span></div>`;
-      this.prev[k] = v;
-    }
+
+    html += '<div class="rg-grid rg-core">'
+      + this._cell('PC', hex4(c.pc), true) + this._cell('A', hex2(c.acc))
+      + this._cell('B', hex2(c.b)) + this._cell('SP', hex2(c.sp))
+      + this._cell('DPTR', hex4(c.dptr)) + this._cell('PSW', hex2(psw))
+      + '</div>';
+
+    html += '<div class="rg-grid rg-bank">';
+    for (let i = 0; i < 8; i++) html += this._cell('R' + i, hex2(c.getR(i)));
+    html += '</div>';
+
     const flags = ['CY', 'AC', 'F0', 'RS1', 'RS0', 'OV', 'F1', 'P'];
-    html += '<div class="flags r" style="grid-column: 1 / -1">' + flags.map((f, i) => `<span class="${(psw >> (7 - i)) & 1 ? 'on' : ''}">${f}</span>`).join('') + `<span>bank ${(psw >> 3) & 3}</span><span>${c.intHighActive ? 'ISR(高)' : c.intLowActive ? 'ISR(低)' : ''}</span></div>`;
+    html += '<div class="rg-flags"><b>PSW</b>'
+      + flags.map((f, i) => `<i class="${(psw >> (7 - i)) & 1 ? 'on' : ''}">${f}</i>`).join('')
+      + `<em>bank ${(psw >> 3) & 3}${c.intHighActive ? ' · ISR(高)' : c.intLowActive ? ' · ISR(低)' : ''}</em></div>`;
+
+    let anyDiff = false;
+    for (let p = 0; p < 4; p++) {
+      const latch = c.bus.latch[p], pin = c.bus.pins[p];
+      let bits = '';
+      for (let i = 7; i >= 0; i--) {
+        const l = (latch >> i) & 1, q = (pin >> i) & 1;
+        if (l !== q) anyDiff = true;
+        bits += `<i class="${l ? '' : 'lo'}${l !== q ? ' diff' : ''}">${l}</i>`;
+      }
+      html += `<div class="rg-port"><b>P${p}</b><span class="bits">${bits}</span>`
+        + `<span class="hex${latch !== pin ? ' split' : ''}">${hex2(latch)}<em>/</em><u>${hex2(pin)}</u></span>`
+        + `<span class="note">${PORT_NOTE[p]}</span></div>`;
+    }
+    html += anyDiff
+      ? '<div class="rg-legend">格子＝latch（程式寫進去的）；<em>琥珀底線</em>＝腳位實際電位被外面拉走</div>'
+      : '<div class="rg-legend">格子＝latch；目前每一支腳的電位都跟 latch 一樣</div>';
+
+    html += '<div class="rg-grid rg-sfr">'
+      + this._cell('TMOD', hex2(s[SFR.TMOD - 0x80])) + this._cell('TCON', hex2(s[SFR.TCON - 0x80]))
+      + this._cell('TH0:TL0', hex2(s[SFR.TH0 - 0x80]) + hex2(s[SFR.TL0 - 0x80]))
+      + this._cell('TH1:TL1', hex2(s[SFR.TH1 - 0x80]) + hex2(s[SFR.TL1 - 0x80]))
+      + this._cell('IE', hex2(s[SFR.IE - 0x80])) + this._cell('IP', hex2(s[SFR.IP - 0x80]))
+      + this._cell('SCON', hex2(s[SFR.SCON - 0x80])) + this._cell('SBUF', hex2(s[SFR.SBUF - 0x80]))
+      + '</div>';
+
     this.root.innerHTML = html;
   }
 }

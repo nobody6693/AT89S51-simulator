@@ -17,7 +17,7 @@ import { Runner } from '../runner.js';
 import { BoardView } from './board.js';
 import { BuzzerAudio } from './audio.js';
 import { RegistersPanel, EditorPanel, DisasmPanel, MemoryPanel, WavePanel, PeriphPanel, WiringPanel, OutputPanel } from './panels.js';
-import { hex4 } from '../board/util.js';
+import { hex2, hex4 } from '../board/util.js';
 import { PROGRAMS } from '../programs.js';
 import { DEFAULT_WIRING } from '../board/wiring.js';
 import { assemble } from '../asm/assembler.js';
@@ -43,12 +43,12 @@ const runner = new Runner(sim, {
     // 面板：執行中每 3 幀更新一次重的面板，停止時立即更新
     const heavy = !info.running || (uiTick++ % 3 === 0);
     if (heavy) {
-      regs.update();
+      periph.update();                       // 週邊監視在左邊，一直都看得到
+      if (activeTab === 'regs') regs.update();
       const line = sim.lineOfAddr(sim.cpu.pc);
       source.setCurrent(line, !info.running);
       if (activeTab === 'disasm') disasmP.update();
       if (activeTab === 'memory') memory.update();
-      if (activeTab === 'periph') periph.update();
       output.setWarnings(sim.warnings);
       showWarnings();
     }
@@ -87,12 +87,13 @@ const wiring = new WiringPanel($('#wiring'), sim, wiringApi);
 // ---------- 狀態列 ----------
 function updateStatus() {
   $('#st-pc').textContent = 'PC ' + hex4(sim.cpu.pc);
+  $('#st-r0').textContent = 'R0 ' + hex2(sim.cpu.getR(0));
   const us = sim.cpu.cycles;
   $('#st-cycles').textContent = us < 1e4 ? `${us} µs` : us < 1e7 ? `${(us / 1e3).toFixed(2)} ms` : `${(us / 1e6).toFixed(3)} s`;
 }
 function setRunButton() {
   const b = $('#btn-run');
-  b.textContent = runner.running ? '⏸ 暫停' : '▶ 執行';
+  b.textContent = runner.running ? '‖ 暫停' : '▶ 執行';
   b.classList.toggle('running', runner.running);
 }
 function showWarnings() {
@@ -187,9 +188,9 @@ function switchTab(name) {
   activeTab = name;
   for (const b of document.querySelectorAll('#tabs button')) b.classList.toggle('active', b.dataset.tab === name);
   for (const t of document.querySelectorAll('.tab')) t.classList.toggle('active', t.id === 'tab-' + name);
+  if (name === 'regs') regs.update();
   if (name === 'disasm') disasmP.update();
   if (name === 'memory') memory.update();
-  if (name === 'periph') periph.update();
   if (name === 'wave') requestAnimationFrame(() => wave.draw());
 }
 for (const b of document.querySelectorAll('#tabs button')) b.addEventListener('click', () => switchTab(b.dataset.tab));
