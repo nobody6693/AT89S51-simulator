@@ -314,3 +314,44 @@ kbd { background: var(--well); border: 1px solid var(--line2); border-bottom-wid
 #legend i { font-style: normal; width: 8px; height: 8px; }
 
 #fatal { background: rgba(255,74,61,.14); color: var(--err); border-bottom: 1px solid var(--err); padding: 9px 11px; font-size: 12px; white-space: pre-wrap; }
+
+/* ---------- 磷光輝光：只給需要強調的字，不是整片都發亮 ---------- */
+/* 三階：主要讀數最亮、可互動次之、警告與錯誤各自的色相 */
+:root {
+  --glow-strong: 0 0 4px rgba(0,255,65,.85), 0 0 12px rgba(0,255,65,.45), 0 0 26px rgba(0,255,65,.18);
+  --glow-soft:   0 0 3px rgba(0,255,65,.55), 0 0 10px rgba(0,255,65,.22);
+  --glow-warn:   0 0 4px rgba(255,176,0,.8), 0 0 13px rgba(255,176,0,.35);
+  --glow-err:    0 0 4px rgba(255,74,61,.8), 0 0 13px rgba(255,74,61,.35);
+}
+
+/* 狀態列讀數：PC / 週期 / R0 —— 執行時一直在跳，是最該亮的東西 */
+#toolbar .status b,
+#toolbar .status #st-pc,
+#toolbar .status #st-cycles,
+#toolbar .status #st-r0 { color: var(--accent); text-shadow: var(--glow-strong); }
+#toolbar .status #st-reason { color: var(--warn); text-shadow: var(--glow-warn); }
+
+/* 機型銘牌 */
+#toolbar .brand b { text-shadow: var(--glow-strong); }
+
+/* 目前執行到的那一行、中斷點、錯誤行 */
+.editor .gut div.cur::after { color: var(--accent); text-shadow: var(--glow-strong); }
+.editor .gut div.bp::before { color: var(--err); text-shadow: var(--glow-err); }
+
+/* 分頁：選中的那個 */
+#tabs button.active { text-shadow: var(--glow-soft); }
+
+/* 按鈕：執行中的主按鈕、滑鼠移上去的 */
+button.primary { text-shadow: var(--glow-soft); }
+button:hover:not(:disabled) { text-shadow: var(--glow-soft); }
+
+/* 暫存器：這一拍變動過的值 */
+#regs .rg.hot span { text-shadow: var(--glow-strong); }
+
+/* 類比讀數、板子提示、警告卡 */
+#analog-panel span { color: var(--accent); text-shadow: var(--glow-soft); }
+.board-tip b { text-shadow: var(--glow-soft); }
+.card.warn { text-shadow: var(--glow-warn); }
+
+/* 板子上的絲印不加輝光 —— 那是印在板子上的漆，不是發光的東西 */
+#board-wrap text { text-shadow: none; }

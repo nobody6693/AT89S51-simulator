@@ -31,17 +31,6 @@
     <!-- 左邊：硬體 -->
     <section id="left">
       <div id="board-wrap"></div>
-      <div id="analog-panel" class="card">
-        <h3>類比與環境</h3>
-        <label>VR1 可變電阻 (ADC CH0) <input type="range" id="rng-pot" min="0" max="5" step="0.01" value="2.5"> <span id="val-pot">2.50 V</span></label>
-        <label>環境溫度 (LM35 / TC74) <input type="range" id="rng-temp" min="-10" max="80" step="0.5" value="25"> <span id="val-temp">25.0 °C</span></label>
-        <div class="dac">DAC 輸出 A <div class="bar"><div id="dac-a"></div></div> <span id="val-dac-a">0.000 V</span></div>
-        <div class="dac">DAC 輸出 B <div class="bar"><div id="dac-b"></div></div> <span id="val-dac-b">0.000 V</span></div>
-      </div>
-      <div class="card">
-        <h3>週邊監視</h3>
-        <div id="periph"></div>
-      </div>
       <div id="warnings" class="card warn" hidden></div>
     </section>
 
@@ -54,6 +43,8 @@
         <button data-tab="memory">記憶體</button>
         <button data-tab="wave">波形</button>
         <button data-tab="wiring">接線</button>
+        <button data-tab="analog">類比</button>
+        <button data-tab="periph">週邊</button>
         <button data-tab="output">輸出</button>
       </nav>
       <div id="tab-source" class="tab active"><div id="source"></div></div>
@@ -62,6 +53,13 @@
       <div id="tab-memory" class="tab"><div id="memory"></div></div>
       <div id="tab-wave" class="tab"><div id="wave"></div></div>
       <div id="tab-wiring" class="tab"><div id="wiring"></div></div>
+      <div id="tab-analog" class="tab"><div id="analog-panel">
+        <label>VR1 可變電阻 (ADC CH0) <input type="range" id="rng-pot" min="0" max="5" step="0.01" value="2.5"> <span id="val-pot">2.50 V</span></label>
+        <label>環境溫度 (LM35 / TC74) <input type="range" id="rng-temp" min="-10" max="80" step="0.5" value="25"> <span id="val-temp">25.0 °C</span></label>
+        <div class="dac">DAC 輸出 A <div class="bar"><div id="dac-a"></div></div> <span id="val-dac-a">0.000 V</span></div>
+        <div class="dac">DAC 輸出 B <div class="bar"><div id="dac-b"></div></div> <span id="val-dac-b">0.000 V</span></div>
+      </div></div>
+      <div id="tab-periph" class="tab"><div id="periph"></div></div>
       <div id="tab-output" class="tab"><div id="output"></div></div>
       <div id="legend">
         <span><i style="background:#77DF89"></i>標籤</span>

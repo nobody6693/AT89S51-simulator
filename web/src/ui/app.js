@@ -43,7 +43,7 @@ const runner = new Runner(sim, {
     // 面板：執行中每 3 幀更新一次重的面板，停止時立即更新
     const heavy = !info.running || (uiTick++ % 3 === 0);
     if (heavy) {
-      periph.update();                       // 週邊監視在左邊，一直都看得到
+      if (activeTab === 'periph') periph.update();
       if (activeTab === 'regs') regs.update();
       const line = sim.lineOfAddr(sim.cpu.pc);
       source.setCurrent(line, !info.running);

@@ -325,6 +325,47 @@ kbd { background: var(--well); border: 1px solid var(--line2); border-bottom-wid
 
 #fatal { background: rgba(255,74,61,.14); color: var(--err); border-bottom: 1px solid var(--err); padding: 9px 11px; font-size: 12px; white-space: pre-wrap; }
 
+/* ---------- 磷光輝光：只給需要強調的字，不是整片都發亮 ---------- */
+/* 三階：主要讀數最亮、可互動次之、警告與錯誤各自的色相 */
+:root {
+  --glow-strong: 0 0 4px rgba(0,255,65,.85), 0 0 12px rgba(0,255,65,.45), 0 0 26px rgba(0,255,65,.18);
+  --glow-soft:   0 0 3px rgba(0,255,65,.55), 0 0 10px rgba(0,255,65,.22);
+  --glow-warn:   0 0 4px rgba(255,176,0,.8), 0 0 13px rgba(255,176,0,.35);
+  --glow-err:    0 0 4px rgba(255,74,61,.8), 0 0 13px rgba(255,74,61,.35);
+}
+
+/* 狀態列讀數：PC / 週期 / R0 —— 執行時一直在跳，是最該亮的東西 */
+#toolbar .status b,
+#toolbar .status #st-pc,
+#toolbar .status #st-cycles,
+#toolbar .status #st-r0 { color: var(--accent); text-shadow: var(--glow-strong); }
+#toolbar .status #st-reason { color: var(--warn); text-shadow: var(--glow-warn); }
+
+/* 機型銘牌 */
+#toolbar .brand b { text-shadow: var(--glow-strong); }
+
+/* 目前執行到的那一行、中斷點、錯誤行 */
+.editor .gut div.cur::after { color: var(--accent); text-shadow: var(--glow-strong); }
+.editor .gut div.bp::before { color: var(--err); text-shadow: var(--glow-err); }
+
+/* 分頁：選中的那個 */
+#tabs button.active { text-shadow: var(--glow-soft); }
+
+/* 按鈕：執行中的主按鈕、滑鼠移上去的 */
+button.primary { text-shadow: var(--glow-soft); }
+button:hover:not(:disabled) { text-shadow: var(--glow-soft); }
+
+/* 暫存器：這一拍變動過的值 */
+#regs .rg.hot span { text-shadow: var(--glow-strong); }
+
+/* 類比讀數、板子提示、警告卡 */
+#analog-panel span { color: var(--accent); text-shadow: var(--glow-soft); }
+.board-tip b { text-shadow: var(--glow-soft); }
+.card.warn { text-shadow: var(--glow-warn); }
+
+/* 板子上的絲印不加輝光 —— 那是印在板子上的漆，不是發光的東西 */
+#board-wrap text { text-shadow: none; }
+
 </style>
 <noscript><div style="padding:16px;background:#1a0505;color:#FF4A3D;font:14px monospace">這個模擬器需要 JavaScript，請在瀏覽器設定裡開啟。</div></noscript>
 <div id="app">
@@ -349,7 +390,7 @@ kbd { background: var(--well); border: 1px solid var(--line2); border-bottom-wid
       <span id="st-r0">R0 00</span>
       <span id="st-cycles">0 µs</span>
       <span id="st-reason"></span>
-      <span id="st-build">版本 2026/9/17 22:34:27</span>
+      <span id="st-build">版本 2026/9/17 22:44:19</span>
     </div>
   </header>
 
@@ -357,17 +398,6 @@ kbd { background: var(--well); border: 1px solid var(--line2); border-bottom-wid
     <!-- 左邊：硬體 -->
     <section id="left">
       <div id="board-wrap"></div>
-      <div id="analog-panel" class="card">
-        <h3>類比與環境</h3>
-        <label>VR1 可變電阻 (ADC CH0) <input type="range" id="rng-pot" min="0" max="5" step="0.01" value="2.5"> <span id="val-pot">2.50 V</span></label>
-        <label>環境溫度 (LM35 / TC74) <input type="range" id="rng-temp" min="-10" max="80" step="0.5" value="25"> <span id="val-temp">25.0 °C</span></label>
-        <div class="dac">DAC 輸出 A <div class="bar"><div id="dac-a"></div></div> <span id="val-dac-a">0.000 V</span></div>
-        <div class="dac">DAC 輸出 B <div class="bar"><div id="dac-b"></div></div> <span id="val-dac-b">0.000 V</span></div>
-      </div>
-      <div class="card">
-        <h3>週邊監視</h3>
-        <div id="periph"></div>
-      </div>
       <div id="warnings" class="card warn" hidden></div>
     </section>
 
@@ -380,6 +410,8 @@ kbd { background: var(--well); border: 1px solid var(--line2); border-bottom-wid
         <button data-tab="memory">記憶體</button>
         <button data-tab="wave">波形</button>
         <button data-tab="wiring">接線</button>
+        <button data-tab="analog">類比</button>
+        <button data-tab="periph">週邊</button>
         <button data-tab="output">輸出</button>
       </nav>
       <div id="tab-source" class="tab active"><div id="source"></div></div>
@@ -388,6 +420,13 @@ kbd { background: var(--well); border: 1px solid var(--line2); border-bottom-wid
       <div id="tab-memory" class="tab"><div id="memory"></div></div>
       <div id="tab-wave" class="tab"><div id="wave"></div></div>
       <div id="tab-wiring" class="tab"><div id="wiring"></div></div>
+      <div id="tab-analog" class="tab"><div id="analog-panel">
+        <label>VR1 可變電阻 (ADC CH0) <input type="range" id="rng-pot" min="0" max="5" step="0.01" value="2.5"> <span id="val-pot">2.50 V</span></label>
+        <label>環境溫度 (LM35 / TC74) <input type="range" id="rng-temp" min="-10" max="80" step="0.5" value="25"> <span id="val-temp">25.0 °C</span></label>
+        <div class="dac">DAC 輸出 A <div class="bar"><div id="dac-a"></div></div> <span id="val-dac-a">0.000 V</span></div>
+        <div class="dac">DAC 輸出 B <div class="bar"><div id="dac-b"></div></div> <span id="val-dac-b">0.000 V</span></div>
+      </div></div>
+      <div id="tab-periph" class="tab"><div id="periph"></div></div>
       <div id="tab-output" class="tab"><div id="output"></div></div>
       <div id="legend">
         <span><i style="background:#77DF89"></i>標籤</span>
@@ -4682,7 +4721,7 @@ const runner = new Runner(sim, {
     // 面板：執行中每 3 幀更新一次重的面板，停止時立即更新
     const heavy = !info.running || (uiTick++ % 3 === 0);
     if (heavy) {
-      periph.update();                       // 週邊監視在左邊，一直都看得到
+      if (activeTab === 'periph') periph.update();
       if (activeTab === 'regs') regs.update();
       const line = sim.lineOfAddr(sim.cpu.pc);
       source.setCurrent(line, !info.running);
