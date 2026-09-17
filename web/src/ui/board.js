@@ -26,7 +26,7 @@ const C = {
   edge: '#B8845C',                                  // 裁板邊露出的玻纖
   socketDark: '#00440A',                            // IC 座陰影側
   black: '#0B0B0B',                                 // 排針、DIP 封裝
-  segOff: '#C29470',                                // 七段未亮時的米色導光
+  segOff: '#2E1A15',                                // 七段未亮的段：暗紅棕，只留一點「8」的輪廓
   matrixBody: '#6A6A64', matrixOff: '#D6D2C6',      // 點矩陣是淺灰模組
   keyBody: '#C3C3C3', keyEdge: '#9A9A9A', keyCap: '#50505A', keyDown: '#8FC0E8',
   buzzerRim: '#191E33', buzzerFace: '#272D47',
@@ -431,7 +431,7 @@ export class BoardView {
       k.addEventListener('mousedown', () => press(1)); k.addEventListener('mouseup', () => press(0)); k.addEventListener('mouseleave', () => press(0));
       k.addEventListener('touchstart', (e) => { e.preventDefault(); press(1); }, { passive: false });
       k.addEventListener('touchend', () => press(0));
-      this.keys.push(cap);
+      this.keys[n] = cap;           // 照 PB 編號放，不是照畫的順序
     }
     txt(g, P(840), P(364), '鍵盤組', { 'font-size': 15 });
     el('rect', { x: P(657), y: P(257), width: P(9), height: P(48), rx: 1.5, fill: '#141414' }, g);
@@ -634,12 +634,16 @@ export class BoardView {
     if (att) this._drawLcd();
 
     const sd = sim.display;
+    // 掃描式顯示八位輪流點亮，每一位的工作週期只有 1/8，照 duty 直接上色會整片半明不暗、
+    // 根本看不出哪一段是亮的。這裡把亮度往上推，讓被掃到的段清楚地亮起來；
+    // 大小順序仍然保留，所以掃太慢還是會偏暗，看得出來是程式的問題。
+    const lit = (d) => Math.min(1, gamma(d) * 2);
     for (let d = 0; d < 8; d++) for (let s = 0; s < 8; s++) {
-      const b = gamma(sd.seg.smooth[d * 8 + s]);
-      this.segs[d][s].setAttribute('fill', b > 0.02 ? `rgb(${Math.round(194 + 61 * b)},${Math.round(148 - 86 * b)},${Math.round(112 - 84 * b)})` : C.segOff);
+      const b = lit(sd.seg.smooth[d * 8 + s]);
+      this.segs[d][s].setAttribute('fill', b > 0.02 ? `rgb(${Math.round(46 + 209 * b)},${Math.round(26 + 70 * b)},${Math.round(21 + 35 * b)})` : C.segOff);
     }
     for (let i = 0; i < 64; i++) {
-      const b = gamma(sd.matrix.smooth[i]);
+      const b = lit(sd.matrix.smooth[i]);
       this.dots[i].setAttribute('fill', b > 0.02 ? `rgb(${Math.round(214 + 41 * b)},${Math.round(210 - 148 * b)},${Math.round(198 - 170 * b)})` : C.matrixOff);
     }
     for (let n = 0; n < 16; n++) this.keys[n].setAttribute('fill', sim.keypad.pressed[n] ? C.keyDown : C.keyCap);

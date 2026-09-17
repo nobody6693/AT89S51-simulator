@@ -230,6 +230,31 @@ test('接好線之後，模擬器真的會依照那個接法動作', () => {
   assert.ok(seg[8] < 0.05, 'X1 不該亮');
 });
 
+test('按下 PBn，變色的就是 PBn 那一顆（不是旁邊那顆）', () => {
+  // keys 陣列曾經照「畫的順序」(列優先) 堆進去，查的時候卻用 PB 編號 (行優先)，
+  // 於是按 PB1 亮的是 PB4。這裡不靠陣列順序，直接用座標驗：
+  // 板子上 PBn 在第 n>>2 行、第 n&3 列。
+  const { sim, view } = mount();
+  const kx = [682, 724, 765, 806], ky = [262, 297, 332, 367], PX = (v) => String(v * 2);
+  const capOf = (el) => el.getAttribute('cx') + ',' + el.getAttribute('cy');
+  const want = (n) => PX(kx[n >> 2] + 15) + ',' + PX(ky[n & 3] + 12);
+  const down = view.keys[0].getAttribute('fill');   // 先取一顆當基準色
+  view.update();
+  const rest = view.keys[0].getAttribute('fill');
+  assert.equal(down, rest, '沒按的時候不該有顏色變化');
+  for (let n = 0; n < 16; n++) {
+    sim.keypad.press(n, 1);
+    view.update();
+    const hot = view.keys.filter((k) => k.getAttribute('fill') !== rest);
+    assert.equal(hot.length, 1, `按 PB${n} 應該只有一顆變色，實際 ${hot.length} 顆`);
+    assert.equal(capOf(hot[0]), want(n),
+      `按 PB${n} 變色的位置不對：應在 ${want(n)}，實際在 ${capOf(hot[0])}`);
+    sim.keypad.press(n, 0);
+  }
+  view.update();
+  assert.equal(view.keys.filter((k) => k.getAttribute('fill') !== rest).length, 0, '放開後應該全部復原');
+});
+
 test('版面沒有互相遮蔽（字壓字／字壓針腳）', () => {
   // 完整檢查在 tools/check-layout.mjs（要先 render）。這裡擋住最容易再犯的兩件事：
   // 1) 字級不能再縮小到看不清楚，2) 橫向排針的腳位字不能比腳距寬。
