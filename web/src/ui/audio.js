@@ -16,11 +16,24 @@ export class BuzzerAudio {
     this.lastErr = '';
   }
 
+  // iOS 規定 AudioContext 必須在使用者手勢「當下那個 tick」裡建立並 resume。
+  // 只要中間插了一個 await，手勢資格就沒了，resume 會被忽略、然後一直靜音。
+  // 所以這一段全部同步，worklet 之類的非同步工作留到後面。
+  unlock() {
+    if (!this.ctx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) { this.lastErr = '這個瀏覽器沒有 Web Audio'; return false; }
+      this.ctx = new AC();
+      // iOS 16.4+：不設這個的話，手機側邊的靜音開關會把 WebAudio 一起靜音
+      try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+    }
+    if (this.ctx.state === 'suspended') { try { this.ctx.resume(); } catch (e) {} }
+    return true;
+  }
+
   async init() {
-    if (this.ctx) return;
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) { this.lastErr = '這個瀏覽器沒有 Web Audio'; return; }
-    this.ctx = new AC();
+    if (!this.unlock()) return;
+    if (this.mode) return;
     try {
       await this._initWorklet();
       this.mode = 'worklet';
@@ -68,9 +81,10 @@ export class BuzzerAudio {
 
   async enable(on) {
     if (on) {
-      await this.init();
+      if (!this.unlock()) return;          // 同步：先在手勢裡把音訊解鎖
+      await this.init();                   // 之後才做非同步的 worklet 載入
       if (!this.ctx) return;
-      if (this.ctx.state === 'suspended') await this.ctx.resume();
+      if (this.ctx.state === 'suspended') { try { await this.ctx.resume(); } catch (e) {} }
       this.enabled = true;
       this.writeT = this.cursor + this.latency;
     } else {

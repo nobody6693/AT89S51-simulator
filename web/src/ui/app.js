@@ -268,9 +268,10 @@ runner.speed = 1;      // 永遠即時，跟真的板子一樣
     await audio.enable(true);
     if (audio.ctx && audio.mode === 'osc') $('#st-reason').textContent = '這個環境擋掉了 AudioWorklet，音效改用方波振盪器';
   };
-  const once = () => { window.removeEventListener('pointerdown', once); window.removeEventListener('keydown', once); kick(); };
-  window.addEventListener('pointerdown', once);
+  const once = () => { window.removeEventListener('keydown', once); kick(); };
   window.addEventListener('keydown', once);
+  // 每次點畫面都順手解鎖一次：iOS 切到背景再回來會把 AudioContext 掛起
+  window.addEventListener('pointerdown', () => { if ($('#chk-audio').checked) { audio.unlock(); kick(); } });
 }
 $('#chk-audio').addEventListener('change', async (e) => {
   await audio.enable(e.target.checked);

@@ -60,3 +60,27 @@ test('關掉音效兩種模式都會靜音', async () => {
   assert.equal(a.enabled, false);
   assert.equal(a.gain.gain.value, 0);
 });
+
+test('iOS：AudioContext 必須在手勢當下同步建立並 resume', async () => {
+  const seq = [];
+  globalThis.AudioContext = class {
+    constructor() { seq.push('new'); this.state = 'suspended'; this.sampleRate = 48000; this.destination = {}; this.currentTime = 0;
+      this.audioWorklet = { addModule: async () => { seq.push('addModule'); throw new Error('慢'); } }; }
+    async resume() { seq.push('resume'); this.state = 'running'; }
+    createOscillator() { return { type: '', frequency: { value: 0, setTargetAtTime() {} }, start() {}, connect: (x) => x }; }
+    createGain() { return { gain: { value: 0, setTargetAtTime(v) { this.value = v; } }, connect: (x) => x }; }
+  };
+  globalThis.window.AudioContext = globalThis.AudioContext;
+  const session = { type: '' };
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { audioSession: session } });
+
+  const a = new BuzzerAudio();
+  a.unlock();                       // 這是手勢裡會跑到的那一段，必須是同步的
+  assert.deepEqual(seq, ['new', 'resume'], 'resume 必須緊接著建立，中間不能卡任何 await');
+  assert.equal(session.type, 'playback',
+    '要設 audioSession，否則 iPhone 的靜音開關會把聲音一起關掉');
+
+  await a.enable(true);
+  assert.ok(seq.indexOf('addModule') > seq.indexOf('resume'), 'worklet 載入要排在解鎖之後');
+  assert.equal(a.enabled, true);
+});
