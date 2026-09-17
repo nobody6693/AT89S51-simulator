@@ -1,33 +1,26 @@
-;==== 2-7-1 嗶嗶電路 =================================
-; 指撥開關 SW1 的 P0.0 撥到 ON，蜂鳴器持續發出 1KHz 嗶聲
-; 接線：Switch = P0.0（ON 讀 0）、Buzzer = P3.7（寫 0 響）
-Switch	EQU	P0.0		;設定指撥開關位址
-Buzzer	EQU	P3.7		;設定蜂鳴器位址
-;==== 主程式 =========================================
-	ORG	0		;程式從 0 位址開始
-START:	SETB	Switch		;規劃輸入埠
-	SETB	Buzzer		;設定蜂鳴器之初始狀態
-	JNB	Switch,Beep	;若指撥開關按下，則呼叫嗶嗶副程式
-	JMP	START		;重新開始執行
-;==== 嗶嗶副程式 =====================================
-Beep:	MOV	R0,#100		;計數量填入 R0
-LOOP:	CLR	Buzzer		;低態輸出到蜂鳴器
-	CALL	DELAY500us	;呼叫延時副程式(0.5ms)
-	SETB	Buzzer		;高態輸出到蜂鳴器
-	CALL	DELAY500us	;呼叫延時副程式(0.5ms)
-	DJNZ	R0,LOOP		;若未達 100 次, 則再驅動蜂鳴器
-	CALL	DELAY100ms	;靜音(0.1s)
-	JMP	START		;重新開始執行
-;==== 延時副程式(0.5ms) ==============================
+Switch	EQU	P0.0
+Buzzer	EQU	P3.7
+	ORG	0
+START:	SETB	Switch
+	SETB	Buzzer
+	JNB	Switch,Beep
+	JMP	START
+Beep:	MOV	R0,#100
+LOOP:	CLR	Buzzer
+	CALL	DELAY500us
+	SETB	Buzzer
+	CALL	DELAY500us
+	DJNZ	R0,LOOP
+	CALL	DELAY100ms
+	JMP	START
 DELAY500us:
-	MOV	R7,#250		;R7 暫存器載入 250 次數
-	DJNZ	R7,$		;本列執行 R7 次
-	RET			;返回主程式
-;==== 延時副程式(0.1 秒) =============================
+	MOV	R7,#250
+	DJNZ	R7,$
+	RET
 DELAY100ms:
-	MOV	R7,#200		;R7 暫存器載入 200 次數
-D1:	MOV	R6,#250		;R6 暫存器載入 250 次數
-	DJNZ	R6,$		;本列執行 R6 次
-	DJNZ	R7,D1		;D1 迴圈執行 R7 次
-	RET			;返回主程式
-	END			;結束程式
+	MOV	R7,#200
+D1:	MOV	R6,#250
+	DJNZ	R6,$
+	DJNZ	R7,D1
+	RET
+	END

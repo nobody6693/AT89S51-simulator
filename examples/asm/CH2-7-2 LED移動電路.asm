@@ -1,32 +1,26 @@
-;==== 2-7-2 LED 移動電路 =============================
-; 按一下 P2.0（板上 PB3）後，單燈由 P1.0 左移到 P1.7，每 0.3 秒一位
-; 接線：PB = P2.0（按下讀 0）、LED = P1（寫 0 亮）
-PB	EQU	P2.0		;設定按鈕開關位址
-LED	EQU	P1		;設定 LED 位址
-;==== 主程式 =========================================
-	ORG	0		;程式從 0 位址開始
-START:	SETB	PB		;規劃輸入埠
-	MOV	LED,#0FFH	;設定 LED 之初始狀態
-	JNB	PB,LEFT		;若按鈕開關按下，則進行左移
-	JMP	START		;重新開始執行
-;==== 左移副程式 =====================================
-LEFT:	MOV	R0,#7		;計數量填入 R0
-	MOV	A,#11111110B	;設定 A 之初值(11111110)
-	MOV	LED,A		;驅動 LED
-LOOP:	CALL	DELAY300ms	;呼叫延時副程式(0.3s)
-	RL	A		;ACC 左移(右邊補 0)
-	ORL	A,#1		;ACC 最右邊設定為 1
-	MOV	LED,A		;設定驅動 LED
-	DJNZ	R0,LOOP		;若未達 7 次, 則再左移 LED
-	CALL	DELAY300ms	;呼叫延時副程式(0.3s)
-	JMP	START		;重新開始執行
-;==== 延時副程式(0.3 秒) =============================
+PB	EQU	P2.0
+LED	EQU	P1
+	ORG	0
+START:	SETB	PB
+	MOV	LED,#0FFH
+	JNB	PB,LEFT
+	JMP	START
+LEFT:	MOV	R0,#7
+	MOV	A,#11111110B
+	MOV	LED,A
+LOOP:	CALL	DELAY300ms
+	RL	A
+	ORL	A,#1
+	MOV	LED,A
+	DJNZ	R0,LOOP
+	CALL	DELAY300ms
+	JMP	START
 DELAY300ms:
-	MOV	R5,#3		;R5 暫存器載入 3 次數
-D0:	MOV	R7,#200		;R7 暫存器載入 200 次數
-D1:	MOV	R6,#250		;R6 暫存器載入 250 次數
-	DJNZ	R6,$		;本列執行 R6 次
-	DJNZ	R7,D1		;D1 迴圈執行 R7 次
-	DJNZ	R5,D0		;D0 迴圈執行 R5 次
-	RET			;返回主程式
-	END			;結束程式
+	MOV	R5,#3
+D0:	MOV	R7,#200
+D1:	MOV	R6,#250
+	DJNZ	R6,$
+	DJNZ	R7,D1
+	DJNZ	R5,D0
+	RET
+	END
