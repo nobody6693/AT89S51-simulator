@@ -241,7 +241,7 @@ test('思考題 2-7-2：雙燈左移', () => {
   runMs(s, 10);
   assert.equal(s.bus.latch[1], 0xFF, '未按鍵時全滅');
   s.buttons.press(2, 1); runMs(s, 5); s.buttons.press(2, 0);
-  assert.equal(s.bus.latch[1], 0xFC, '按下後應先亮 P1.0、P1.1 兩顆');
+  assert.equal(s.bus.latch[1], 0x3F, '按下後應先亮最右邊的 P1.6、P1.7（DS7、DS8）');
   const seen = []; let last = s.bus.latch[1];
   const t0 = s.cpu.cycles;
   while (s.cpu.cycles - t0 < 2.7e6) {
@@ -249,8 +249,9 @@ test('思考題 2-7-2：雙燈左移', () => {
     const v = s.bus.latch[1];
     if (v !== last) { last = v; seen.push(v); }
   }
-  assert.deepEqual(seen, [0xF9, 0xF3, 0xE7, 0xCF, 0x9F, 0x3F, 0xFF],
-    '兩顆一組左移到 P1.6/P1.7 後回全滅');
+  // 往低位元走 = 燈在畫面上由右往左（P1.0 是最左邊的 DS1）
+  assert.deepEqual(seen, [0x9F, 0xCF, 0xE7, 0xF3, 0xF9, 0xFC, 0xFF],
+    '兩顆一組往畫面左邊移到 P1.0/P1.1 後回全滅');
   // 每一格都恰好兩顆亮，且相鄰
   for (const v of seen.slice(0, 6)) {
     const b = v.toString(2).padStart(8, '0');
