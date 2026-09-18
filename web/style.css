@@ -93,8 +93,7 @@ input[type=checkbox], input[type=range] { accent-color: var(--accent); }
   display: flex; align-items: center; gap: 12px; padding: 6px 11px;
   border: 1px solid var(--line); border-bottom: 0; background: var(--panel); color: var(--muted);
 }
-#src-bar .title { color: var(--accent); letter-spacing: .2em; text-shadow: var(--glow-soft); }
-#src-bar .hint { flex: 1; font-size: 13.13px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#src-bar .title { flex: 1; color: var(--accent); letter-spacing: .2em; text-shadow: var(--glow-soft); }
 #src-bar button { padding: 3px 9px; }
 #src-box { flex: 1; min-height: 0; overflow: auto; background: var(--well); border: 1px solid var(--line); }
 
@@ -252,12 +251,13 @@ kbd { background: var(--well); border: 1px solid var(--line2); border-bottom-wid
 @media (max-width: 900px) {
   html, body { height: auto; }
   #app { height: auto; min-height: 100%; }
-  #main { display: block; padding: 8px; }
-  #left, #right { overflow: visible; min-height: 0; }
-  #right { margin-top: 14px; }
+  /* 順序：電路板 → 原始碼 → 停靠分頁。#left 攤平成 #main 的直接子元素再用 order 排 */
+  #main { display: flex; flex-direction: column; gap: 12px; padding: 8px; }
+  #left { display: contents; }
+  #right { overflow: visible; min-height: 0; margin-top: 0; }
+  #board-wrap { order: 1; } #warnings { order: 2; } #right { order: 3; } #dock { order: 4; }
   .tab, #src-box { max-height: 65vh; }
   #tab-wave { height: 50vh; }
-  #src-bar .hint { display: none; }
 
   #toolbar { gap: 5px 10px; padding: 7px; font-size: 15px; }
   #toolbar button { padding: 7px 9px; }
@@ -286,12 +286,12 @@ kbd { background: var(--well); border: 1px solid var(--line2); border-bottom-wid
 }
 
 /* ---------- 可編輯的原始碼 ---------- */
-.editor { display: flex; align-items: flex-start; font-size: 15.63px; line-height: 24px; min-height: 100%; background: #040805; }
+.editor { --lh: 24px; display: flex; align-items: flex-start; font-size: 15.63px; line-height: var(--lh); min-height: 100%; background: #040805; }
 .editor .gut {
   position: sticky; left: 0; z-index: 3; flex: none; width: 62px; padding-right: 11px; text-align: right;
   background: var(--panel); color: #727E74; user-select: none; border-right: 1px solid var(--grid);
 }
-.editor .gut div { height: 24px; cursor: pointer; position: relative; }
+.editor .gut div { height: var(--lh); cursor: pointer; position: relative; }
 .editor .gut div:hover { color: var(--accent); }
 .editor .gut div.nocode { color: #3A4A3C; }
 .editor .gut div.bp::before { content: '●'; color: var(--err); position: absolute; left: 6px; }
@@ -299,7 +299,7 @@ kbd { background: var(--well); border: 1px solid var(--line2); border-bottom-wid
 .editor .gut div.cur::after { content: '▶'; color: var(--accent); position: absolute; left: 24px; }
 .editor .codecol { position: relative; flex: 1; min-width: max-content; }
 .editor .marks { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
-.editor .marks div { position: absolute; left: 0; right: 0; height: 24px; min-width: 100%; }
+.editor .marks div { position: absolute; left: 0; right: 0; height: var(--lh); min-width: 100%; }
 .editor .marks .m-cur { background: rgba(0, 255, 65, .07); }
 .editor .marks .m-err { background: rgba(255, 74, 61, .14); }
 .editor .marks .m-warn { background: rgba(255, 176, 0, .13); }
@@ -399,3 +399,11 @@ button:hover:not(:disabled) { text-shadow: var(--glow-soft); }
 button.primary { box-shadow: 0 0 12px rgba(0,255,65,.7), 0 0 30px rgba(0,255,65,.35); }
 button.primary.running { box-shadow: 0 0 12px rgba(255,176,0,.7), 0 0 30px rgba(255,176,0,.35); }
 #tabs button.active { text-shadow: var(--glow-strong); }
+
+/* 手機上編輯器的字要小、行要矮，不然一行放不下幾個字。
+   放在檔尾、用 #source 提高優先權，才蓋得過上面一般的 .editor 規則。 */
+@media (max-width: 900px) {
+  #source .editor { --lh: 19px; font-size: 12.5px; }
+  #source .editor .gut { width: 44px; padding-right: 7px; }
+  #source .editor .gut div.cur::after { left: 14px; }
+}

@@ -5,7 +5,8 @@ import { hex2, hex4, pinName } from '../board/util.js';
 import { CONNECTORS, DEFAULT_WIRING } from '../board/wiring.js';
 
 const h = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
-const LH = 24;                      // CSS .editor 的 line-height
+// 編輯器的行高由 CSS 的 --lh 決定（手機上字小、行也矮），要用時去讀，不要寫死
+const lineHeightOf = (el) => { try { return parseFloat(getComputedStyle(el).lineHeight) || 24; } catch { return 24; } };
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 // ---------- 暫存器 ----------
@@ -217,10 +218,11 @@ export class EditorPanel {
     this._marks(lines.length);
   }
   _marks(n) {
+    this._lh = lineHeightOf(this.pre);
     this.marks.innerHTML = '';
     const add = (line, cls) => {
       if (line < 1 || line > n) return;
-      const d = h('div', cls); d.style.top = ((line - 1) * LH) + 'px';
+      const d = h('div', cls); d.style.top = ((line - 1) * this._lh) + 'px';
       this.marks.appendChild(d);
     };
     for (const [ln, sev] of Object.entries(this.diags)) add(+ln, sev === 'error' ? 'm-err' : 'm-warn');
@@ -243,7 +245,7 @@ export class EditorPanel {
   scrollTo(line) {
     const box = this.root.parentElement;
     if (!box) return;
-    const y = (line - 1) * LH;
+    const y = (line - 1) * lineHeightOf(this.pre);
     if (y < box.scrollTop + 20 || y > box.scrollTop + box.clientHeight - 40) box.scrollTop = y - box.clientHeight / 2;
   }
 }
