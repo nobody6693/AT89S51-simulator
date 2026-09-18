@@ -614,8 +614,8 @@ export class BoardView {
     for (let i = 0; i < 8; i++) {
       const b = gamma(sim.leds.duty.smooth[i]), { led, halo, bloom } = this.leds[i];
       led.setAttribute('fill', b > 0.02 ? `rgb(${Math.round(198 + 57 * b)},${Math.round(196 + 56 * b)},${Math.round(42 + 150 * b)})` : '#C6C42A');
-      halo.setAttribute('opacity', Math.min(1, b * 1.05).toFixed(3));
-      bloom.setAttribute('opacity', (b * 0.55).toFixed(3));
+      halo.setAttribute('opacity', Math.min(1, b * 1.25).toFixed(3));
+      bloom.setAttribute('opacity', Math.min(1, b * 0.85).toFixed(3));
     }
     for (let i = 0; i < 8; i++) this.dip[i].knob.setAttribute('y', sim.dip.on[i] ? this.dip[i].on : this.dip[i].off);
     for (let i = 0; i < 4; i++) this.buttons[i].setAttribute('fill', sim.buttons.pressed[i] ? '#b9b9b9' : '#5e5e5e');

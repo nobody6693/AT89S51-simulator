@@ -28,38 +28,45 @@
   </header>
 
   <main id="main">
-    <!-- 左邊：硬體 -->
+    <!-- 左邊：硬體，底下停靠各種監視面板 -->
     <section id="left">
       <div id="board-wrap"></div>
       <div id="warnings" class="card warn" hidden></div>
-      <div id="mem-dock" class="card"><h3>記憶體</h3><div id="memory"></div></div>
+      <div id="dock">
+        <nav id="tabs">
+          <button data-tab="regs" class="active">暫存器</button>
+          <button data-tab="disasm">反組譯</button>
+          <button data-tab="wave">波形</button>
+          <button data-tab="wiring">接線</button>
+          <button data-tab="analog">類比</button>
+          <button data-tab="periph">週邊</button>
+          <button data-tab="output">輸出</button>
+          <button data-tab="memory">記憶體</button>
+        </nav>
+        <div id="tab-regs" class="tab active"><div id="regs"></div></div>
+        <div id="tab-disasm" class="tab"><div id="disasm"></div></div>
+        <div id="tab-wave" class="tab"><div id="wave"></div></div>
+        <div id="tab-wiring" class="tab"><div id="wiring"></div></div>
+        <div id="tab-analog" class="tab"><div id="analog-panel">
+          <label>VR1 可變電阻 (ADC CH0) <input type="range" id="rng-pot" min="0" max="5" step="0.01" value="2.5"> <span id="val-pot">2.50 V</span></label>
+          <label>環境溫度 (LM35 / TC74) <input type="range" id="rng-temp" min="-10" max="80" step="0.5" value="25"> <span id="val-temp">25.0 °C</span></label>
+          <div class="dac">DAC 輸出 A <div class="bar"><div id="dac-a"></div></div> <span id="val-dac-a">0.000 V</span></div>
+          <div class="dac">DAC 輸出 B <div class="bar"><div id="dac-b"></div></div> <span id="val-dac-b">0.000 V</span></div>
+        </div></div>
+        <div id="tab-periph" class="tab"><div id="periph"></div></div>
+        <div id="tab-output" class="tab"><div id="output"></div></div>
+        <div id="tab-memory" class="tab"><div id="memory"></div></div>
+      </div>
     </section>
 
-    <!-- 右邊：程式 -->
+    <!-- 右邊：永遠是原始碼 -->
     <section id="right">
-      <nav id="tabs">
-        <button data-tab="source" class="active">原始碼</button>
-        <button data-tab="regs">暫存器</button>
-        <button data-tab="disasm">反組譯</button>
-        <button data-tab="wave">波形</button>
-        <button data-tab="wiring">接線</button>
-        <button data-tab="analog">類比</button>
-        <button data-tab="periph">週邊</button>
-        <button data-tab="output">輸出</button>
-      </nav>
-      <div id="tab-source" class="tab active"><div id="source"></div></div>
-      <div id="tab-regs" class="tab"><div id="regs"></div></div>
-      <div id="tab-disasm" class="tab"><div id="disasm"></div></div>
-      <div id="tab-wave" class="tab"><div id="wave"></div></div>
-      <div id="tab-wiring" class="tab"><div id="wiring"></div></div>
-      <div id="tab-analog" class="tab"><div id="analog-panel">
-        <label>VR1 可變電阻 (ADC CH0) <input type="range" id="rng-pot" min="0" max="5" step="0.01" value="2.5"> <span id="val-pot">2.50 V</span></label>
-        <label>環境溫度 (LM35 / TC74) <input type="range" id="rng-temp" min="-10" max="80" step="0.5" value="25"> <span id="val-temp">25.0 °C</span></label>
-        <div class="dac">DAC 輸出 A <div class="bar"><div id="dac-a"></div></div> <span id="val-dac-a">0.000 V</span></div>
-        <div class="dac">DAC 輸出 B <div class="bar"><div id="dac-b"></div></div> <span id="val-dac-b">0.000 V</span></div>
-      </div></div>
-      <div id="tab-periph" class="tab"><div id="periph"></div></div>
-      <div id="tab-output" class="tab"><div id="output"></div></div>
+      <div id="src-bar">
+        <span class="title">原始碼</span>
+        <span class="hint">Tab 縮排 · 點行號設中斷點 · 改完自動重跑</span>
+        <button id="btn-copy" title="把編輯器裡的原始碼整份複製到剪貼簿">複製到剪貼簿</button>
+      </div>
+      <div id="src-box"><div id="source"></div></div>
     </section>
   </main>
   <div id="drop-hint" hidden>放開以載入檔案</div>

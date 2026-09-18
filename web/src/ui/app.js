@@ -30,7 +30,7 @@ const sim = new Sim();
 window.sim = sim; // 方便在 console 裡玩
 const audio = new BuzzerAudio();
 let frameStartCycle = 0;
-let activeTab = 'source';
+let activeTab = 'regs';
 let uiTick = 0;
 
 const runner = new Runner(sim, {
@@ -48,13 +48,15 @@ const runner = new Runner(sim, {
       const line = sim.lineOfAddr(sim.cpu.pc);
       source.setCurrent(line, !info.running);
       if (activeTab === 'disasm') disasmP.update();
-      memory.update();                       // 常駐在左下角，一直都看得到
+      if (activeTab === 'memory') memory.update();
       output.setWarnings(sim.warnings);
       showWarnings();
     }
     if (activeTab === 'wave') wave.draw();
     updateAnalog();
   },
+  // 重新執行時要把上一次的停止原因清掉，不然狀態列會一直寫著「手動暫停」
+  onStart() { $('#st-reason').textContent = ''; setRunButton(); },
   onStop(reason) { $('#st-reason').textContent = reason; setRunButton(); regs.update(); disasmP.update(); memory.update(); periph.update(); source.setCurrent(sim.lineOfAddr(sim.cpu.pc), true); },
 });
 window.runner = runner;
@@ -69,7 +71,7 @@ const disasmP = new DisasmPanel($('#disasm'), sim, (addr) => toggleBpAddr(addr))
 const memory = new MemoryPanel($('#memory'), sim);
 const wave = new WavePanel($('#wave'), sim);
 const periph = new PeriphPanel($('#periph'), sim);
-const output = new OutputPanel($('#output'), (line) => { switchTab('source'); source.scrollTo(line); });
+const output = new OutputPanel($('#output'), (line) => source.scrollTo(line));
 const localPresets = () => { try { return JSON.parse(localStorage.getItem('kt89s51.presets') || '{}'); } catch { return {}; } };
 const wiringApi = {
   listPresets: async () => Object.keys(localPresets()),
@@ -184,15 +186,39 @@ async function openFile(file) {
 }
 
 // ---------- 分頁 ----------
+// 左下角的停靠分頁：暫存器 / 反組譯 / 波形 / 接線 / 類比 / 週邊 / 輸出 / 記憶體。
+// 右邊永遠是原始碼，不收進分頁。
+const TAB_KEY = 'kt89s51.tab';
 function switchTab(name) {
+  if (!document.getElementById('tab-' + name)) name = 'regs';
   activeTab = name;
   for (const b of document.querySelectorAll('#tabs button')) b.classList.toggle('active', b.dataset.tab === name);
   for (const t of document.querySelectorAll('.tab')) t.classList.toggle('active', t.id === 'tab-' + name);
   if (name === 'regs') regs.update();
   if (name === 'disasm') disasmP.update();
+  if (name === 'memory') memory.update();
+  if (name === 'periph') periph.update();
   if (name === 'wave') requestAnimationFrame(() => wave.draw());
+  try { localStorage.setItem(TAB_KEY, name); } catch {}
 }
 for (const b of document.querySelectorAll('#tabs button')) b.addEventListener('click', () => switchTab(b.dataset.tab));
+try { switchTab(localStorage.getItem(TAB_KEY) || 'regs'); } catch { switchTab('regs'); }
+
+// 原始碼整份複製到剪貼簿
+async function copySource() {
+  const text = source.getSource();
+  const say = (m) => { $('#st-reason').textContent = m; };
+  try { await navigator.clipboard.writeText(text); say('原始碼已複製到剪貼簿'); return; } catch {}
+  // 舊瀏覽器或非 https：退回用選取 + execCommand
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch {}
+  ta.remove();
+  say(ok ? '原始碼已複製到剪貼簿' : '這個環境不允許寫入剪貼簿，請自己全選複製');
+}
+$('#btn-copy').addEventListener('click', copySource);
 
 // ---------- 編輯即時重跑 ----------
 let editTimer = 0;
@@ -256,7 +282,7 @@ const BLANK_ASM = [
   '\tEND',
   '',
 ].join('\n');
-$('#btn-new').addEventListener('click', () => { switchTab('source'); compileAndLoad(BLANK_ASM, '未命名.asm'); });
+$('#btn-new').addEventListener('click', () => compileAndLoad(BLANK_ASM, '未命名.asm'));
 $('#btn-open').addEventListener('click', () => $('#file-input').click());
 $('#file-input').addEventListener('change', (e) => { if (e.target.files[0]) openFile(e.target.files[0]); e.target.value = ''; });
 $('#btn-run').addEventListener('click', () => { runner.toggle(); setRunButton(); });

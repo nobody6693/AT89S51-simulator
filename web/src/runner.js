@@ -23,6 +23,7 @@ export class Runner {
     this.stopReason = '';
     this.lastT = performance.now();
     this.carryUs = 0;
+    if (this.hooks.onStart) this.hooks.onStart();
     // 若停在中斷點上，先跨過一條
     if (this.cpu.breakpoints.has(this.cpu.pc)) this.cpu.step();
     this._loop();

@@ -16,7 +16,7 @@
   --ok: #00FF41;
   --warn: #FFB000;        /* 變動、提醒 */
   --err: #FF4A3D;         /* 錯誤、中斷點 */
-  --glow: 0 0 8px color-mix(in srgb, currentColor 40%, transparent);
+  --glow: 0 0 5px color-mix(in srgb, currentColor 70%, transparent), 0 0 14px color-mix(in srgb, currentColor 35%, transparent);
   --mono: "Cascadia Mono", "Consolas", "DejaVu Sans Mono", "Menlo", "Noto Sans Mono",
           "Microsoft JhengHei", "PingFang TC", monospace;
 }
@@ -83,10 +83,20 @@ input[type=checkbox], input[type=range] { accent-color: var(--accent); }
 #left { display: flex; flex-direction: column; gap: 14px; overflow: auto; min-height: 0; }
 #left > * { flex: none; }   /* 板子不准被擠扁，左欄放不下就讓它捲 */
 
-/* 記憶體停靠在左下角，不收進分頁 —— 跑程式時要一直看得到 */
-#mem-dock { display: flex; flex-direction: column; min-height: 0; padding-bottom: 8px; }
-#mem-dock #memory { flex: 1; min-height: 0; max-height: 36vh; overflow: auto; padding: 2px 0 0; }
+/* 左下角：停靠分頁（暫存器 / 反組譯 / 波形 / 接線 / 類比 / 週邊 / 輸出 / 記憶體）*/
+#dock { display: flex; flex-direction: column; min-height: 0; }
+#dock .tab { max-height: 42vh; }
+#tab-wave { height: 42vh; }
+/* 右欄：永遠是原始碼 */
 #right { display: flex; flex-direction: column; gap: 0; min-height: 0; }
+#src-bar {
+  display: flex; align-items: center; gap: 12px; padding: 6px 11px;
+  border: 1px solid var(--line); border-bottom: 0; background: var(--panel); color: var(--muted);
+}
+#src-bar .title { color: var(--accent); letter-spacing: .2em; text-shadow: var(--glow-soft); }
+#src-bar .hint { flex: 1; font-size: 13.13px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#src-bar button { padding: 3px 9px; }
+#src-box { flex: 1; min-height: 0; overflow: auto; background: var(--well); border: 1px solid var(--line); }
 
 /* 面板：方角、細框，標題嵌在框線上的切口裡 */
 .card { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 0; padding: 15px 13px 12px; }
@@ -245,7 +255,9 @@ kbd { background: var(--well); border: 1px solid var(--line2); border-bottom-wid
   #main { display: block; padding: 8px; }
   #left, #right { overflow: visible; min-height: 0; }
   #right { margin-top: 14px; }
-  .tab { max-height: 65vh; }
+  .tab, #src-box { max-height: 65vh; }
+  #tab-wave { height: 50vh; }
+  #src-bar .hint { display: none; }
 
   #toolbar { gap: 5px 10px; padding: 7px; font-size: 15px; }
   #toolbar button { padding: 7px 9px; }
@@ -311,15 +323,17 @@ kbd { background: var(--well); border: 1px solid var(--line2); border-bottom-wid
 /* 輝光一律用 currentColor 調出來，字是什麼顏色就發什麼顏色的光。
    var() 是在使用它的那個元素上展開的，所以 currentColor 抓到的是那個元素自己的 color。 */
 :root {
-  --glow-strong: 0 0 4px color-mix(in srgb, currentColor 85%, transparent),
-                 0 0 12px color-mix(in srgb, currentColor 45%, transparent),
-                 0 0 26px color-mix(in srgb, currentColor 18%, transparent);
-  --glow-soft:   0 0 3px color-mix(in srgb, currentColor 55%, transparent),
-                 0 0 10px color-mix(in srgb, currentColor 22%, transparent);
-  --glow-half:   0 0 3px color-mix(in srgb, currentColor 34%, transparent),
-                 0 0 9px  color-mix(in srgb, currentColor 13%, transparent);
-  --glow-warn:   0 0 4px color-mix(in srgb, currentColor 80%, transparent),
-                 0 0 13px color-mix(in srgb, currentColor 35%, transparent);
+  --glow-strong: 0 0 5px color-mix(in srgb, currentColor 100%, transparent),
+                 0 0 16px color-mix(in srgb, currentColor 65%, transparent),
+                 0 0 36px color-mix(in srgb, currentColor 30%, transparent);
+  --glow-soft:   0 0 4px color-mix(in srgb, currentColor 80%, transparent),
+                 0 0 14px color-mix(in srgb, currentColor 40%, transparent),
+                 0 0 28px color-mix(in srgb, currentColor 14%, transparent);
+  --glow-half:   0 0 4px color-mix(in srgb, currentColor 55%, transparent),
+                 0 0 12px color-mix(in srgb, currentColor 25%, transparent);
+  --glow-warn:   0 0 5px color-mix(in srgb, currentColor 100%, transparent),
+                 0 0 16px color-mix(in srgb, currentColor 55%, transparent),
+                 0 0 32px color-mix(in srgb, currentColor 22%, transparent);
   --glow-err:    var(--glow-warn);
 }
 
@@ -356,3 +370,32 @@ button:hover:not(:disabled) { text-shadow: var(--glow-soft); }
 
 /* 原始碼：語法色各自發自己顏色的光，強度只給一半 */
 .editor pre.hl, #source .line .txt, #disasm .line .txt { text-shadow: var(--glow-half); }
+
+/* 會動的資訊一律發光：執行中會跳的數字、會變的狀態，全部都要亮起來 */
+#toolbar .status #st-name { text-shadow: var(--glow-half); }
+#regs .rg span { color: var(--accent); text-shadow: var(--glow-soft); }
+#regs .rg.hot span { text-shadow: var(--glow-strong); }
+#regs .rg.changed span { text-shadow: var(--glow-warn); }
+#regs .rg-flags i.on { box-shadow: 0 0 10px rgba(0,255,65,.7); }
+#regs .rg-port .bits i { text-shadow: var(--glow-half); }
+#regs .rg-port .bits i.lo { box-shadow: inset 0 0 0 1px var(--grid), 0 0 10px rgba(0,255,65,.6); }
+#regs .rg-port .hex, #regs .rg-port .hex u { color: var(--accent); text-shadow: var(--glow-soft); }
+#regs .rg-port .hex.split u { color: var(--warn); text-shadow: var(--glow-warn); }
+#memory .b { color: var(--accent); text-shadow: var(--glow-half); }
+#memory .b.ch { text-shadow: var(--glow-warn); }
+#memory .b.pc { box-shadow: 0 0 10px rgba(0,255,65,.7); }
+#memory .sym, #memory .sfrgrid { color: var(--accent); text-shadow: var(--glow-half); }
+#disasm .line.cur .txt { color: var(--accent); text-shadow: var(--glow-strong); }
+#disasm .line.cur .addr { color: var(--accent); text-shadow: var(--glow-soft); }
+#periph .box pre { color: var(--accent); text-shadow: var(--glow-soft); }
+#output pre, #output .diag { text-shadow: var(--glow-half); }
+#output .diag.error { text-shadow: var(--glow-err); } #output .diag.warning { text-shadow: var(--glow-warn); }
+#wiring .wlist { color: var(--accent); text-shadow: var(--glow-half); }
+#analog-panel span { text-shadow: var(--glow-strong); }
+#analog-panel .bar div { box-shadow: 0 0 8px rgba(0,255,65,.9), 0 0 20px rgba(0,255,65,.5); }
+#wave canvas { filter: drop-shadow(0 0 3px rgba(0,255,65,.55)) drop-shadow(0 0 9px rgba(0,255,65,.25)); }
+#wave .ctl .pins label { color: var(--accent); text-shadow: var(--glow-half); }
+.editor .marks .m-cur { background: rgba(0, 255, 65, .11); box-shadow: 0 0 14px rgba(0,255,65,.18); }
+button.primary { box-shadow: 0 0 12px rgba(0,255,65,.7), 0 0 30px rgba(0,255,65,.35); }
+button.primary.running { box-shadow: 0 0 12px rgba(255,176,0,.7), 0 0 30px rgba(255,176,0,.35); }
+#tabs button.active { text-shadow: var(--glow-strong); }
