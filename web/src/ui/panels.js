@@ -255,6 +255,10 @@ export class DisasmPanel {
   constructor(root, sim, onToggleBp) { this.root = root; this.sim = sim; this.onToggleBp = onToggleBp; this.follow = true; }
   update() {
     const c = this.sim.cpu;
+    // PC 和中斷點都沒變就不重畫：執行中每 3 幀就會被叫一次，重建 DOM 會讓手機捲不動
+    const key = c.pc + ':' + [...c.breakpoints].join(',');
+    if (key === this._key) return;
+    this._key = key;
     // 從 PC 往前找 12 條指令的起點（以反組譯長度往前推估）
     let start = Math.max(0, c.pc - 40);
     // 對齊：從 start 反組譯直到 >= pc，取最後一個 <= pc 的位址序列
@@ -277,7 +281,13 @@ export class DisasmPanel {
     for (let i = 0; i < 28 && a < 0x10000; i++) a += emit(a);
     this.root.innerHTML = html;
     for (const row of this.root.querySelectorAll('.line')) row.querySelector('.gutter').addEventListener('click', () => this.onToggleBp(+row.dataset.addr));
-    const cur = this.root.querySelector('.line.cur'); if (cur) cur.scrollIntoView({ block: 'center' });
+    // 只捲這個面板自己的捲軸，把目前行放中間。不能用 scrollIntoView ——
+    // 它會連外層的頁面一起捲，手機上會跟使用者的手指搶捲動，整頁卡住不能上滑。
+    const cur = this.root.querySelector('.line.cur'), box = this.root.parentElement;
+    if (cur && box) {
+      const r = cur.getBoundingClientRect(), b = box.getBoundingClientRect();
+      box.scrollTop += (r.top - b.top) - (b.height - r.height) / 2;
+    }
   }
 }
 
