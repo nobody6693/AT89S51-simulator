@@ -25,6 +25,9 @@ html, body {
   margin: 0; height: 100%; background: var(--bg); color: var(--text);
   font: 16.25px/1.45 var(--mono); color-scheme: dark;
   -webkit-font-smoothing: antialiased;
+  /* 手機瀏覽器（尤其 iOS 轉橫向、Android 字體加大）會自動把一般文字放大，
+     但不會放大 textarea 裡的字，編輯器的游標就會跟著色層錯開。一律關掉。 */
+  -webkit-text-size-adjust: 100%; text-size-adjust: 100%;
 }
 /* 映像管玻璃：掃描線 + 一點點暈影，蓋在所有東西上面 */
 body::after {
@@ -306,6 +309,9 @@ kbd { background: var(--well); border: 1px solid var(--line2); border-bottom-wid
 .editor pre.hl, .editor textarea {
   margin: 0; padding: 0 12px 0 8px; border: 0; font: inherit; line-height: inherit;
   white-space: pre; tab-size: 8; -moz-tab-size: 8;
+  /* 兩層的字要一模一樣寬：不要連字、不要字距微調，手機的內建外觀也拿掉 */
+  font-variant-ligatures: none; font-kerning: none; letter-spacing: 0;
+  -webkit-appearance: none; appearance: none;
 }
 .editor pre.hl { position: relative; z-index: 1; pointer-events: none; color: var(--text); }
 .editor textarea {
