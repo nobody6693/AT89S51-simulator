@@ -305,10 +305,13 @@ async function loadExample(n) {
   wiringApi.onWiringChanged(); wiring.build(); showWarnings();
   const src = p.source;
   if (/\.(hex|ihx)$/i.test(n)) loadHexText(src, n); else await compileAndLoad(src, n);
+  showLoadedExample(n);
 }
+// 選單要一直顯示目前載入的是哪個範例。以前選完會跳回「範例…」，
+// 使用者會把那個佔位項當成第一個範例，搞不清楚在跑的其實是別支程式。
+function showLoadedExample(n) { $('#sel-example').value = byName.has(n) ? n : ''; }
 $('#sel-example').addEventListener('change', (e) => {
-  const v = e.target.value; e.target.value = '';
-  if (v) loadExample(v);
+  if (e.target.value) loadExample(e.target.value);
 });
 // ---------- 檔案：一種格式 .kt89（純文字）----------
 // 內容就是組合語言原始碼；有接線的話，第一行放一句註解把接線也帶著走。
@@ -332,12 +335,13 @@ function parseProject(text) {
 
 function rebuildFileList() {
   const sel = $('#sel-example');
-  sel.innerHTML = '<option value="">範例…</option>';
+  sel.innerHTML = '<option value="">選擇範例…</option>';
   for (const p of PROGRAMS) { const o = document.createElement('option'); o.value = p.name; o.textContent = p.name; sel.appendChild(o); }
 }
 
 function openProjectText(text, name) {
   setFileName(name);
+  showLoadedExample(name);
   const parsed = parseProject(text);
   if (parsed.cfg) { sim.wiring.set(parsed.cfg); wiringApi.onWiringChanged(); wiring.build(); showWarnings(); }
   return compileAndLoad(parsed.src, name);

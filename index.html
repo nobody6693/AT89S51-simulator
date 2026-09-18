@@ -378,7 +378,7 @@ button:hover:not(:disabled) { text-shadow: var(--glow-soft); }
       <input type="text" id="file-name" value="未命名" size="12" title="檔名（下載時會用這個名字）">
       <button id="btn-export" title="下載成純文字 .txt 檔">下載</button>
       <input type="file" id="file-input" accept=".txt,.asm,.a51,.s,.kt89,.hex,.ihx" hidden>
-      <select id="sel-example" title="課本範例"><option value="">課本範例…</option></select>
+      <select id="sel-example" title="課本範例"><option value="">選擇範例…</option></select>
     </div>
     <div class="group">
       <button id="btn-run" class="primary" title="執行 / 暫停 (F5)">▶ 執行</button>
@@ -391,7 +391,7 @@ button:hover:not(:disabled) { text-shadow: var(--glow-soft); }
       <span id="st-r0">R0 00</span>
       <span id="st-cycles">0 µs</span>
       <span id="st-reason"></span>
-      <span id="st-build">版本 2026/9/18 01:58:05</span>
+      <span id="st-build">版本 2026/9/18 08:22:19</span>
     </div>
   </header>
 
@@ -4944,10 +4944,13 @@ async function loadExample(n) {
   wiringApi.onWiringChanged(); wiring.build(); showWarnings();
   const src = p.source;
   if (/\.(hex|ihx)$/i.test(n)) loadHexText(src, n); else await compileAndLoad(src, n);
+  showLoadedExample(n);
 }
+// 選單要一直顯示目前載入的是哪個範例。以前選完會跳回「範例…」，
+// 使用者會把那個佔位項當成第一個範例，搞不清楚在跑的其實是別支程式。
+function showLoadedExample(n) { $('#sel-example').value = byName.has(n) ? n : ''; }
 $('#sel-example').addEventListener('change', (e) => {
-  const v = e.target.value; e.target.value = '';
-  if (v) loadExample(v);
+  if (e.target.value) loadExample(e.target.value);
 });
 // ---------- 檔案：一種格式 .kt89（純文字）----------
 // 內容就是組合語言原始碼；有接線的話，第一行放一句註解把接線也帶著走。
@@ -4971,12 +4974,13 @@ function parseProject(text) {
 
 function rebuildFileList() {
   const sel = $('#sel-example');
-  sel.innerHTML = '<option value="">範例…</option>';
+  sel.innerHTML = '<option value="">選擇範例…</option>';
   for (const p of PROGRAMS) { const o = document.createElement('option'); o.value = p.name; o.textContent = p.name; sel.appendChild(o); }
 }
 
 function openProjectText(text, name) {
   setFileName(name);
+  showLoadedExample(name);
   const parsed = parseProject(text);
   if (parsed.cfg) { sim.wiring.set(parsed.cfg); wiringApi.onWiringChanged(); wiring.build(); showWarnings(); }
   return compileAndLoad(parsed.src, name);
