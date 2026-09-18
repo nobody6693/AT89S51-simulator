@@ -437,32 +437,35 @@ test('floods：主板 P1 燈條跟著音高走，休止符與音尾會熄掉', (
     `P1 出現了不該有的值 ${v.toString(16).toUpperCase()}H`);
 });
 
-// ==== hidden/Alicia.asm：先不放進範例清單，由 MIDI 轉出來的單音旋律，加速 1.25 倍後整首 155 秒 ====
-const ALICIA_HZ = { C6: 1046.5, G5: 784.0, F5: 698.5, 'A#5': 932.3, 'D#5': 622.3, 'G#4': 415.3, D5: 587.3, G4: 392.0 };
-// 樂譜開頭 15 個音與長度(ms)：原曲 75bpm 的四分音符 400ms、全音符 1600ms，快 1.25 倍後是 320 / 1280
-const ALICIA_HEAD = [
-  ['C6', 320], ['G5', 320], ['F5', 1280], ['C6', 320], ['A#5', 320], ['D#5', 1280],
-  ['G5', 320], ['F5', 320], ['G#4', 1280], ['D#5', 320], ['D5', 320], ['G4', 320],
-  ['D#5', 320], ['D5', 320], ['D#5', 320],
-];
-
-test('Alicia：組得進 4KB，開頭的音高與音長對得上樂譜', () => {
+// ==== hidden/Alicia.asm：先不放進範例清單。由 MIDI 轉出來，加速 1.25 倍，和弦用快速分解 ====
+// 開頭：C6、G5 各 320ms 的單音，接著 F5 配左手 C4 的和弦，兩個音每 10ms 輪流放
+test('Alicia：組得進 4KB，開頭兩個單音對，和弦段 F5 與 C4 每 10ms 輪流', () => {
   const r = build(asmOf('hidden/Alicia.asm'));
   assert.ok(r.codeBytes <= 4096, `程式應塞得進 4KB，實際 ${r.codeBytes} 位元組`);
   const s = new Sim();
   s.load({ hex: r.hex, lines: r.lines, symbols: r.symbols, name: 'Alicia.asm' });
-  const notes = playNotesTight(s, 10e6);
-  assert.ok(notes.length >= ALICIA_HEAD.length, `10 秒內至少該有 ${ALICIA_HEAD.length} 個音，實際 ${notes.length}`);
-  ALICIA_HEAD.forEach(([name, ms], i) => {
-    const cents = 1200 * Math.log2(notes[i].hz / ALICIA_HZ[name]);
-    assert.ok(Math.abs(cents) < 20,
-      `第 ${i + 1} 個音應是 ${name}(${ALICIA_HZ[name]}Hz)，實際 ${notes[i].hz.toFixed(1)}Hz，差 ${cents.toFixed(0)} 音分`);
-    if (i + 1 < ALICIA_HEAD.length) {
-      const d = (notes[i + 1].t0 - notes[i].t0) / 1000;
-      // 每個 1ms 單位重新裝填 Timer1 都會多幾個機械週期，長音會累積約 0.75% 的漂移
-      assert.ok(Math.abs(d - ms) < 8 + ms * 0.01, `第 ${i + 1} 個音(${name})應長 ${ms}ms，實際到下一個音隔 ${d.toFixed(0)}ms`);
-    }
-  });
+  const evs = [];
+  s.buzzer.events.length = 0;
+  while (s.cpu.cycles < 1.0e6) { s.cpu.run(10000); for (const e of s.buzzer.frame(s.cpu.cycles)) evs.push(e[0]); }
+  // 每個半週期歸類成哪個音，連續同音併成一段
+  const HALF = { C6: 478, G5: 638, F5: 716, C4: 1911 };
+  const runs = [];
+  for (let i = 1; i < evs.length; i++) {
+    const h = evs[i] - evs[i - 1];
+    const k = Object.keys(HALF).find((n) => Math.abs(h - HALF[n]) < HALF[n] * 0.04) || '?';
+    const last = runs[runs.length - 1];
+    if (last && last.k === k) { last.us += h; last.t1 = evs[i]; } else runs.push({ k, us: h, t0: evs[i - 1], t1: evs[i] });
+  }
+  const c6 = runs.find((x) => x.k === 'C6'), g5 = runs.find((x) => x.k === 'G5');
+  assert.ok(c6 && c6.us > 300000, `第 1 個音應是 C6 響約 314ms(320ms 扣掉尾巴的靜音)，實際 ${c6 ? (c6.us / 1000).toFixed(0) : 0}ms`);
+  assert.ok(g5 && g5.us > 300000, `第 2 個音應是 G5 響約 314ms，實際 ${g5 ? (g5.us / 1000).toFixed(0) : 0}ms`);
+  assert.ok(Math.abs((g5.t0 - c6.t0) / 1000 - 320) < 12, `C6 到 G5 應隔 320ms，實際 ${((g5.t0 - c6.t0) / 1000).toFixed(0)}ms`);
+  // 640ms 起的和弦段：F5 與 C4 交替，每片約 10ms(切換那一下的半週期不算)
+  const chord = runs.filter((x) => x.t0 >= 650000 && x.t1 <= 950000 && (x.k === 'F5' || x.k === 'C4'));
+  const f5 = chord.filter((x) => x.k === 'F5'), c4 = chord.filter((x) => x.k === 'C4');
+  assert.ok(f5.length >= 12 && c4.length >= 12, `300ms 內 F5、C4 各該輪到十幾次，實際 F5 ${f5.length} / C4 ${c4.length}`);
+  for (const x of chord) assert.ok(x.us > 6000 && x.us < 12000, `${x.k} 每片應約 10ms，實際 ${(x.us / 1000).toFixed(1)}ms`);
+  for (let i = 1; i < chord.length; i++) assert.notEqual(chord[i].k, chord[i - 1].k, '兩個聲部應該輪流，不該連著兩片同音');
 });
 
 test('web/src/programs.js 與 examples/asm 完全同步', async () => {
