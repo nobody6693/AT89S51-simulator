@@ -194,6 +194,7 @@ export class EditorPanel {
 
   _render() {
     const lines = this.ta.value.split('\n');
+    this.nLines = lines.length;
     this.pre.innerHTML = lines.map(l => (this.asm ? highlightAsm(l) : highlight(l)) || ' ').join('\n');
     // textarea 要跟 pre 一樣高，讓外層容器捲動而不是 textarea 自己捲
     this.ta.style.height = this.pre.scrollHeight + 'px';
@@ -229,8 +230,14 @@ export class EditorPanel {
   setBreakpoints(lineSet) { this.bp = lineSet; this._render(); }
   setCurrent(line, scroll = true) {
     if (this.curLine === (line || -1)) return;
+    const prev = this.curLine;
     this.curLine = line || -1;
-    this._render();
+    // 只動行號與標記，不要整份重新上色。執行中每秒會換十幾次目前行，
+    // 檔案一大(像幾百列樂譜資料)整份上色一次要幾十毫秒，整台機器都會被拖慢。
+    const g = this.gut.children;
+    if (prev >= 1 && g[prev - 1]) g[prev - 1].classList.remove('cur');
+    if (this.curLine >= 1 && g[this.curLine - 1]) g[this.curLine - 1].classList.add('cur');
+    this._marks(this.nLines || 0);
     if (scroll && this.curLine >= 1) this.scrollTo(this.curLine);
   }
   scrollTo(line) {
