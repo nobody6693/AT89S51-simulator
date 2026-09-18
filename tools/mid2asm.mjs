@@ -5,8 +5,9 @@
 //   --max=秒     只取前面幾秒（以原速計）
 //   --speed=倍率 整體加速，例如 --speed=1.25 是快 1.25 倍
 //   --arp=N      和弦用「快速分解」模擬：同時按著的音每 N 個 10ms 輪流放一個
-//                （最多取最高的 3 個音，且要在最高音往下兩個八度以內，太低的伴奏不算）
-//                沒給就只留最高音
+//                （只取最高音往下兩個八度以內的音，太低的伴奏不算）；沒給就只留最高音
+//   --voices=N   分解時最多取幾個聲部（1~3，預設 3）
+//   --lead=N     旋律(最高音)那一片放 N 倍長（預設 1），讓旋律壓過伴奏、聽起來不那麼雜
 //
 // 蜂鳴器只有一支腳、只有高低兩種狀態，所以：
 //   * 和弦一律只留最高音（旋律線）
@@ -107,7 +108,11 @@ if (speed !== 1) for (const n of mel) { n.startMs /= speed; n.endMs /= speed; }
 const arpArg = rest.find((a) => a === '--arp' || a.startsWith('--arp='));
 const arp = arpArg ? (arpArg === '--arp' ? 1 : +arpArg.slice(6)) : 0;   // 每個分解音幾個 10ms；0 = 不分解
 if (arpArg && !(arp >= 1 && arp <= 25)) { console.error('--arp 要是 1~25 的整數'); process.exit(1); }
-const ARP_VOICES = 3, ARP_SPAN = 24;
+const ARP_VOICES = +((rest.find((a) => a.startsWith('--voices=')) || '--voices=3').slice(9));
+const lead = +((rest.find((a) => a.startsWith('--lead=')) || '--lead=1').slice(7));
+if (!(ARP_VOICES >= 1 && ARP_VOICES <= 3)) { console.error('--voices 要是 1~3'); process.exit(1); }
+if (!(lead >= 1 && lead * arp <= 25)) { console.error('--lead 要是 1 以上，而且 lead×arp 不能超過 25'); process.exit(1); }
+const ARP_SPAN = 24;
 
 const NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const nameOf = (m) => NAMES[m % 12] + (Math.floor(m / 12) - 1);
@@ -185,10 +190,10 @@ const put = (s) => { asm += s + '\n'; };
 put(`;==== ${title} —— 蜂鳴器單音演奏 ====================`);
 put(';');
 put(`; 由 MIDI 轉出來的：node tools/mid2asm.mjs "${title}.mid"`
-  + (octShift ? ` --oct=${octShift}` : '') + (speed !== 1 ? ` --speed=${speed}` : '') + (arp ? ` --arp=${arp}` : ''));
+  + (octShift ? ` --oct=${octShift}` : '') + (speed !== 1 ? ` --speed=${speed}` : '') + (arp ? ` --arp=${arp}` : '') + (ARP_VOICES !== 3 ? ` --voices=${ARP_VOICES}` : '') + (lead !== 1 ? ` --lead=${lead}` : ''));
 put(`; ${rows.length} 個音、共 ${totalSec} 秒，音域 ${nameOf(used[0])} ~ ${nameOf(used[used.length - 1])}`
   + (octShift ? `（已整體升 ${octShift} 個八度）` : '') + (speed !== 1 ? `（已加速 ${speed} 倍）` : '')
-  + (arp ? `（和弦每 ${arp * 10}ms 輪流分解）` : ''));
+  + (arp ? `（和弦分解：每片 ${arp * 10}ms、最多 ${ARP_VOICES} 個聲部、旋律片 ${lead} 倍長）` : ''));
 put(';');
 put('; 蜂鳴器只有一支腳，只有高低兩種狀態，所以原曲的和弦一律只留最高音，');
 put('; 力度與音色全部丟掉 —— 剩下的就是一條單音旋律線。');
@@ -197,14 +202,16 @@ put('; 音高：Timer0 中斷翻轉 P3.7 產生方波');
 put('; 節拍：Timer1 輪詢計時，樂譜長度以 10ms 為單位');
 put('; 燈光：主板 P1 那 8 顆 LED 當音高條，音愈高亮愈多顆（不需要接任何線）');
 put('; 每個音尾巴留 6ms 靜音，連續的同音才分得開；長度 bit 7 = 圓滑，不留靜音直接接下一個音。');
-if (arp) put(`; 和弦：同時按著的音每 ${arp * 10}ms 輪流放一個（快速分解），耳朵會聽成一團和聲。`);
+if (arp) put(`; 和弦：同時按著的音輪流放（快速分解），旋律一片 ${arp * lead * 10}ms、伴奏一片 ${arp * 10}ms，最多 ${ARP_VOICES} 個聲部。`);
 put('Buzzer\tEQU\tP3.7\t\t;蜂鳴器');
 put('RELD_H\tEQU\t30H\t\t;目前這個音的 Timer0 重載值(高位元組)');
 put('RELD_L\tEQU\t31H\t\t;                          (低位元組)');
 put('TMP\tEQU\t32H\t\t;TONE 的暫存');
 if (arp) {
-  put(`ARP\tEQU\t${arp}\t\t;分解和弦：每個聲部放幾個 10ms`);
+  put(`ARP\tEQU\t${arp}\t\t;分解和弦：伴奏聲部一片放幾個 10ms`);
+  put(`ARPL\tEQU\t${arp * lead}\t\t;             旋律聲部一片放幾個 10ms`);
   put('VOICE\tEQU\t33H\t\t;和弦的聲部代號(最多 3 個：33H~35H)');
+  put('SLICE\tEQU\t36H\t\t;這一片還剩幾個單位');
 }
 put(';==== 中斷向量 =======================================');
 put('\tORG\t0');
@@ -325,7 +332,7 @@ put('\tDJNZ\tR6,PL10');
 put('\tRET');
 if (arp) {
   put(';==== 奏一個和弦：VOICE = 聲部代號，R3 = 聲部數，R1 = 長度 ==');
-  put('; 每個聲部輪流放 ARP 個單位(快速分解)，最後一片交給 PBODY 收尾');
+  put('; 各聲部輪流放：旋律 ARPL 個單位、伴奏 ARP 個單位(快速分解)，最後一片交給 PBODY 收尾');
   put('PLAYC:\tMOV\tA,R1');
   put('\tANL\tA,#7FH');
   put('\tMOV\tR6,A\t\t;還剩幾個單位');
@@ -336,14 +343,21 @@ if (arp) {
   put('\tMOV\tA,@R0');
   put('\tMOV\tR0,A');
   put('\tCALL\tTONE\t\t;換到這個聲部');
+  put('\tMOV\tA,R2\t\t;第一個聲部是旋律，那一片比較長');
+  put('\tJNZ\tPCACC');
+  put('\tMOV\tA,#ARPL');
+  put('\tSJMP\tPCLEN');
+  put('PCACC:\tMOV\tA,#ARP');
+  put('PCLEN:\tMOV\tSLICE,A');
   put('\tMOV\tA,R6');
   put('\tCLR\tC');
-  put('\tSUBB\tA,#ARP');
+  put('\tSUBB\tA,SLICE');
   put('\tJC\tPCLAST\t\t;剩不到一片');
   put('\tJZ\tPCLAST\t\t;剛好剩一片');
   put('\tMOV\tR6,A');
-  put(`\tMOV\tR7,#${arp * 10}`);
+  put('PCD:\tMOV\tR7,#10\t\t;放這一片');
   put('\tCALL\tDELAY');
+  put('\tDJNZ\tSLICE,PCD');
   put('\tINC\tR2\t\t;下一個聲部，放完一輪就回到第一個');
   put('\tMOV\tA,R2');
   put('\tXRL\tA,R3');

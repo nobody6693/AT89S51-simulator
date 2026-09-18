@@ -438,8 +438,9 @@ test('floods：主板 P1 燈條跟著音高走，休止符與音尾會熄掉', (
 });
 
 // ==== hidden/Alicia.asm：先不放進範例清單。由 MIDI 轉出來，加速 1.25 倍，和弦用快速分解 ====
-// 開頭：C6、G5 各 320ms 的單音，接著 F5 配左手 C4 的和弦，兩個音每 10ms 輪流放
-test('Alicia：組得進 4KB，開頭兩個單音對，和弦段 F5 與 C4 每 10ms 輪流', () => {
+// 開頭：C6、G5 各 320ms 的單音，接著 F5 配左手 C4 的和弦：F5 放 40ms、C4 放 20ms 輪流
+const ARP_MS = { F5: 40, C4: 20 };
+test('Alicia：組得進 4KB，開頭兩個單音對，和弦段 F5 40ms、C4 20ms 輪流', () => {
   const r = build(asmOf('hidden/Alicia.asm'));
   assert.ok(r.codeBytes <= 4096, `程式應塞得進 4KB，實際 ${r.codeBytes} 位元組`);
   const s = new Sim();
@@ -460,11 +461,14 @@ test('Alicia：組得進 4KB，開頭兩個單音對，和弦段 F5 與 C4 每 1
   assert.ok(c6 && c6.us > 300000, `第 1 個音應是 C6 響約 314ms(320ms 扣掉尾巴的靜音)，實際 ${c6 ? (c6.us / 1000).toFixed(0) : 0}ms`);
   assert.ok(g5 && g5.us > 300000, `第 2 個音應是 G5 響約 314ms，實際 ${g5 ? (g5.us / 1000).toFixed(0) : 0}ms`);
   assert.ok(Math.abs((g5.t0 - c6.t0) / 1000 - 320) < 12, `C6 到 G5 應隔 320ms，實際 ${((g5.t0 - c6.t0) / 1000).toFixed(0)}ms`);
-  // 640ms 起的和弦段：F5 與 C4 交替，每片約 10ms(切換那一下的半週期不算)
+  // 640ms 起的和弦段：F5 與 C4 交替(切換那一下的半週期不算)
   const chord = runs.filter((x) => x.t0 >= 650000 && x.t1 <= 950000 && (x.k === 'F5' || x.k === 'C4'));
   const f5 = chord.filter((x) => x.k === 'F5'), c4 = chord.filter((x) => x.k === 'C4');
-  assert.ok(f5.length >= 12 && c4.length >= 12, `300ms 內 F5、C4 各該輪到十幾次，實際 F5 ${f5.length} / C4 ${c4.length}`);
-  for (const x of chord) assert.ok(x.us > 6000 && x.us < 12000, `${x.k} 每片應約 10ms，實際 ${(x.us / 1000).toFixed(1)}ms`);
+  assert.ok(f5.length >= 4 && c4.length >= 4, `300ms 內 F5、C4 各該輪到四次以上，實際 F5 ${f5.length} / C4 ${c4.length}`);
+  for (const x of chord) {
+    const ms = ARP_MS[x.k];
+    assert.ok(Math.abs(x.us / 1000 - ms) < 4, `${x.k} 每片應約 ${ms}ms，實際 ${(x.us / 1000).toFixed(1)}ms`);
+  }
   for (let i = 1; i < chord.length; i++) assert.notEqual(chord[i].k, chord[i - 1].k, '兩個聲部應該輪流，不該連著兩片同音');
 });
 
