@@ -437,6 +437,37 @@ function saveDraft() {
   try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ name: current.name, text: serializeProject() })); } catch {}
 }
 
+// 意見回饋：開 GitHub 的新 issue 頁面，先把版本、正在跑的程式、瀏覽器環境填進去，
+// 回報的人只要寫發生什麼事。不用後端，也不用把 email 放到公開頁面上。
+const REPO_URL = 'https://github.com/nobody6693/AT89S51-simulator';
+function openFeedback() {
+  const ver = ($('#st-build').textContent || '').replace(/^版本\s*/, '').trim();
+  const env = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+  const size = typeof window !== 'undefined' ? `${window.innerWidth}×${window.innerHeight}` : '';
+  const where = typeof location !== 'undefined' ? (location.protocol === 'file:' ? '單檔離線版' : location.href.split('?')[0]) : '';
+  const body = [
+    '## 發生什麼事',
+    '（請描述：做了什麼、看到什麼、預期應該是什麼）',
+    '',
+    '## 怎麼重現',
+    '1. ',
+    '2. ',
+    '',
+    '---',
+    '以下是自動帶入的環境資訊，請保留：',
+    `- 版本：${ver || '不明'}`,
+    `- 開啟方式：${where}`,
+    `- 正在跑的程式：${current.name || '（無）'}`,
+    `- 音效：${audio.enabled ? (audio.mode || '未啟動') : '關'}`,
+    `- 視窗：${size}`,
+    `- 瀏覽器：${env}`,
+  ].join('\n');
+  const url = `${REPO_URL}/issues/new?title=${encodeURIComponent('[回饋] ')}&body=${encodeURIComponent(body)}`;
+  const w = window.open(url, '_blank', 'noopener');
+  if (!w) $('#st-reason').textContent = '瀏覽器擋掉了新視窗，請允許彈出視窗後再按一次';
+}
+$('#btn-feedback').addEventListener('click', openFeedback);
+
 // 使用次數：線上版（github.io）才計。用 hits.sh 的徽章圖，每次打開網頁加一，
 // 不用帳號、不放 cookie。單檔離線版不會去連。數字直接顯示在徽章上，
 // 也可以到 https://hits.sh/nobody6693.github.io/AT89S51-simulator/ 看。
