@@ -76,6 +76,8 @@ input[type=checkbox], input[type=range] { accent-color: var(--accent); }
 }
 #toolbar .status #st-reason { color: var(--warn); }
 #toolbar .status #st-build { color: var(--faint); font-size: 13.75px; }
+#toolbar .status #st-hits { padding: 0 8px; }
+#toolbar .status #st-hits img { display: block; height: 20px; }
 #toolbar .status > span:empty { display: none; }
 #toolbar .zoom { display: inline-flex; gap: 0; }
 #toolbar .zoom button { padding: 5px 9px; border-right-width: 0; }
