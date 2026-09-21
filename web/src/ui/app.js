@@ -440,7 +440,7 @@ function saveDraft() {
 // 使用次數：線上版（github.io）才計。用 hits.sh 的徽章圖，每次打開網頁加一，
 // 不用帳號、不放 cookie。單檔離線版不會去連。數字直接顯示在徽章上，
 // 也可以到 https://hits.sh/nobody6693.github.io/AT89S51-simulator/ 看。
-if (/\.github\.io$/i.test(location.hostname)) {
+if (typeof location !== 'undefined' && /\.github\.io$/i.test(location.hostname)) {
   const img = document.createElement('img');
   img.src = 'https://hits.sh/nobody6693.github.io/AT89S51-simulator.svg?style=flat-square&label=' + encodeURIComponent('使用次數') + '&color=00FF41&labelColor=030B05';
   img.alt = '使用次數';

@@ -451,7 +451,7 @@ button.primary.running { box-shadow: 0 0 12px rgba(255,176,0,.7), 0 0 30px rgba(
       <span id="st-cycles">0 µs</span>
       <span id="st-reason"></span>
       <span id="st-hits"></span>
-      <span id="st-build">版本 2026/9/21 11:38:49</span>
+      <span id="st-build">版本 2026/9/21 11:39:38</span>
     </div>
   </header>
 
@@ -5165,7 +5165,7 @@ function saveDraft() {
 // 使用次數：線上版（github.io）才計。用 hits.sh 的徽章圖，每次打開網頁加一，
 // 不用帳號、不放 cookie。單檔離線版不會去連。數字直接顯示在徽章上，
 // 也可以到 https://hits.sh/nobody6693.github.io/AT89S51-simulator/ 看。
-if (/\.github\.io$/i.test(location.hostname)) {
+if (typeof location !== 'undefined' && /\.github\.io$/i.test(location.hostname)) {
   const img = document.createElement('img');
   img.src = 'https://hits.sh/nobody6693.github.io/AT89S51-simulator.svg?style=flat-square&label=' + encodeURIComponent('使用次數') + '&color=00FF41&labelColor=030B05';
   img.alt = '使用次數';
