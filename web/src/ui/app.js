@@ -379,9 +379,7 @@ const getFileName = () => ($('#file-name').value.trim() || '未命名').replace(
 
 // 線上版（Artifact）不准網頁自己發動下載，要透過平台的 downloads 能力；
 // 單檔版沒有那個東西，就用一般的 <a download>。兩條路都留著。
-async function exportCurrent() {
-  const text = serializeProject();
-  const fname = getFileName() + '.txt';
+async function downloadText(text, fname) {
   const say = (m) => { $('#st-reason').textContent = m; };
 
   const dl = window.claude && window.claude.use ? await window.claude.use('downloads').catch(() => null) : null;
@@ -403,6 +401,14 @@ async function exportCurrent() {
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
   say('已下載 ' + fname);
+}
+async function exportCurrent() {
+  await downloadText(serializeProject(), getFileName() + '.txt');
+}
+// 匯出成純 .asm：只有組合語言原始碼，不帶接線那行註解，
+// 給 Keil µVision 或其他 8051 組譯器直接開。
+async function exportAsm() {
+  await downloadText(source.getSource(), getFileName() + '.asm');
 }
 async function copyFallback(text, fname, say) {
   try { await navigator.clipboard.writeText(text); say('這個環境不能直接下載，已複製到剪貼簿，貼到記事本存成 ' + fname + ' 即可'); }
@@ -429,6 +435,7 @@ $('#btn-zoom-out').addEventListener('click', () => { boardZoom = setZoom(boardZo
 $('#btn-zoom-fit').addEventListener('click', () => { boardZoom = setZoom(1); });
 
 $('#btn-export').addEventListener('click', exportCurrent);
+$('#btn-export-asm').addEventListener('click', exportAsm);
 rebuildFileList();
 
 // 打字時順手把草稿存起來，重新整理／關掉分頁都不會白做工

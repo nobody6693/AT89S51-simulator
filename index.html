@@ -435,7 +435,8 @@ button.primary.running { box-shadow: 0 0 12px rgba(255,176,0,.7), 0 0 30px rgba(
       <button id="btn-new" title="開一個空白的組合語言檔">新檔案</button>
       <button id="btn-open" title="從電腦開啟檔案（也可以直接把檔案拖進視窗）">開啟</button>
       <input type="text" id="file-name" value="未命名" size="12" title="檔名（下載時會用這個名字）">
-      <button id="btn-export" title="下載成純文字 .txt 檔">下載</button>
+      <button id="btn-export" title="下載成純文字 .txt 檔（含接線資訊）">下載</button>
+      <button id="btn-export-asm" title="下載成純 .asm 檔（不含接線，給 Keil 等組譯器開）">匯出 .asm</button>
       <input type="file" id="file-input" accept=".txt,.asm,.a51,.s,.kt89,.hex,.ihx" hidden>
       <select id="sel-example" title="課本範例"><option value="">選擇範例…</option></select>
     </div>
@@ -452,7 +453,7 @@ button.primary.running { box-shadow: 0 0 12px rgba(255,176,0,.7), 0 0 30px rgba(
       <span id="st-cycles">0 µs</span>
       <span id="st-reason"></span>
       <span id="st-hits"></span>
-      <span id="st-build">版本 2026/9/24 09:41:51</span>
+      <span id="st-build">版本 2026/9/24 09:59:28</span>
     </div>
   </header>
 
@@ -5105,9 +5106,7 @@ const getFileName = () => ($('#file-name').value.trim() || '未命名').replace(
 
 // 線上版（Artifact）不准網頁自己發動下載，要透過平台的 downloads 能力；
 // 單檔版沒有那個東西，就用一般的 <a download>。兩條路都留著。
-async function exportCurrent() {
-  const text = serializeProject();
-  const fname = getFileName() + '.txt';
+async function downloadText(text, fname) {
   const say = (m) => { $('#st-reason').textContent = m; };
 
   const dl = window.claude && window.claude.use ? await window.claude.use('downloads').catch(() => null) : null;
@@ -5129,6 +5128,14 @@ async function exportCurrent() {
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
   say('已下載 ' + fname);
+}
+async function exportCurrent() {
+  await downloadText(serializeProject(), getFileName() + '.txt');
+}
+// 匯出成純 .asm：只有組合語言原始碼，不帶接線那行註解，
+// 給 Keil µVision 或其他 8051 組譯器直接開。
+async function exportAsm() {
+  await downloadText(source.getSource(), getFileName() + '.asm');
 }
 async function copyFallback(text, fname, say) {
   try { await navigator.clipboard.writeText(text); say('這個環境不能直接下載，已複製到剪貼簿，貼到記事本存成 ' + fname + ' 即可'); }
@@ -5155,6 +5162,7 @@ $('#btn-zoom-out').addEventListener('click', () => { boardZoom = setZoom(boardZo
 $('#btn-zoom-fit').addEventListener('click', () => { boardZoom = setZoom(1); });
 
 $('#btn-export').addEventListener('click', exportCurrent);
+$('#btn-export-asm').addEventListener('click', exportAsm);
 rebuildFileList();
 
 // 打字時順手把草稿存起來，重新整理／關掉分頁都不會白做工
