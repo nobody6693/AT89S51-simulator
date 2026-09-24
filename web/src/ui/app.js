@@ -180,7 +180,14 @@ function afterLoad() {
   setRunButton(); updateStatus();
 }
 async function openFile(file) {
-  const text = await file.text();
+  let text = await file.text(); // File.text() 固定用 UTF-8 解碼
+  if (text.includes('�')) {
+    // 出現替代字元，代表這份檔案（很可能是 Keil 存出來的 Big5）不是 UTF-8，改猜 Big5 再試一次
+    try {
+      const big5 = new TextDecoder('big5').decode(await file.arrayBuffer());
+      if (!big5.includes('�')) text = big5;
+    } catch {}
+  }
   if (/\.(hex|ihx)$/i.test(file.name) || /^:[0-9A-Fa-f]{8}/.test(text.trim())) loadHexText(text, file.name);
   else await openProjectText(text, file.name);
 }
@@ -408,10 +415,59 @@ async function downloadText(text, fname) {
 async function exportCurrent() {
   await downloadText(serializeProject(), getFileName() + '.txt');
 }
+
+// Keil µVision 是老式 Windows 程式，編輯器多半不認 UTF-8（不管有沒有 BOM），
+// 只認系統內碼——繁體中文 Windows 就是 Big5。瀏覽器沒有「文字→Big5」的內建
+// API，但有 Big5→文字的解碼器，所以反過來，把每個雙位元組組合都解一次，
+// 建出一份「文字→Big5」的對照表（做一次、之後快取）。
+let big5EncodeTable = null;
+function toBig5Bytes(text) {
+  if (!big5EncodeTable) {
+    big5EncodeTable = new Map();
+    const dec = new TextDecoder('big5');
+    for (let lead = 0x81; lead <= 0xFE; lead++) {
+      for (let trail = 0x40; trail <= 0xFE; trail++) {
+        if (trail === 0x7F) continue; // Big5 沒有這個後位元組
+        const ch = dec.decode(new Uint8Array([lead, trail]));
+        if (ch.length === 1 && ch.codePointAt(0) !== 0xFFFD && !big5EncodeTable.has(ch)) {
+          big5EncodeTable.set(ch, [lead, trail]);
+        }
+      }
+    }
+  }
+  const out = [];
+  for (const ch of text) {
+    const code = ch.codePointAt(0);
+    if (code < 0x80) { out.push(code); continue; }        // ASCII 原樣
+    const pair = big5EncodeTable.get(ch);
+    if (!pair) return null;                                // 有 Big5 打不出來的字（例如簡體字）
+    out.push(pair[0], pair[1]);
+  }
+  return new Uint8Array(out);
+}
+
 // 匯出成純 .asm：只有組合語言原始碼，不帶接線那行註解，
-// 給 Keil µVision 或其他 8051 組譯器直接開。
+// 給 Keil µVision 或其他 8051 組譯器直接開。優先存成 Big5（Keil 認得），
+// 只有在線上版／iframe 裡（沒有真正的檔案系統可用 <a download>）或內容
+// 含有 Big5 打不出來的字時，才退回 UTF-8（帶 BOM）。
 async function exportAsm() {
-  await downloadText(source.getSource(), getFileName() + '.asm');
+  const text = source.getSource();
+  const fname = getFileName() + '.asm';
+  const canSaveBytes = window.self === window.top && !(window.claude && window.claude.use);
+  if (canSaveBytes) {
+    const bytes = toBig5Bytes(text);
+    if (bytes) {
+      const say = (m) => { $('#st-reason').textContent = m; };
+      const a = document.createElement('a');
+      const url = URL.createObjectURL(new Blob([bytes], { type: 'text/plain' }));
+      a.href = url; a.download = fname;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      say('已下載 ' + fname + '（Big5 編碼，Keil 可直接開）');
+      return;
+    }
+  }
+  await downloadText(text, fname);
 }
 async function copyFallback(text, fname, say) {
   try { await navigator.clipboard.writeText(text); say('這個環境不能直接下載，已複製到剪貼簿，貼到記事本存成 ' + fname + ' 即可'); }
