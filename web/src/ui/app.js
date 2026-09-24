@@ -133,11 +133,11 @@ function toggleBpAddr(addr) {
 }
 
 // ---------- 載入 / 編譯 ----------
-let current = { name: '', source: '', isHex: false };
+let current = { name: '', source: '', isHex: false, hex: null };
 const isAsm = (name) => /\.(asm|a51|s)$/i.test(name || '');
 
 async function compileAndLoad(src, name) {
-  current = { name, source: src, isHex: false };
+  current = { name, source: src, isHex: false, hex: null };
   const chip = CHIP;
   const r = assemble(src, { codeSize: 4096 });
   const res = { ok: r.ok, hex: r.hex, lines: r.lines, symbols: r.symbols, diagnostics: r.diagnostics, notes: [], chip,
@@ -145,6 +145,7 @@ async function compileAndLoad(src, name) {
   output.setCompile(res);
   source.asm = true;
   if (res.ok) {
+    current.hex = res.hex;
     sim.chip = res.chip;
     sim.load({ hex: res.hex, lines: res.lines, symbols: res.symbols, name });
     memory.setSymbols(res.symbols);
@@ -161,7 +162,7 @@ async function compileAndLoad(src, name) {
   }
 }
 function loadHexText(text, name) {
-  current = { name, source: text, isHex: true };
+  current = { name, source: text, isHex: true, hex: text };
   sim.load({ hex: text, lines: [], symbols: {}, name });
   memory.setSymbols({});
   bpLines.clear(); sim.cpu.breakpoints.clear();
@@ -386,11 +387,12 @@ const getFileName = () => ($('#file-name').value.trim() || '未命名').replace(
 
 // 線上版（Artifact）不准網頁自己發動下載，要透過平台的 downloads 能力；
 // 單檔版沒有那個東西，就用一般的 <a download>。兩條路都留著。
-async function downloadText(text, fname) {
+// bom=false 給 .hex 這種純 ASCII、不能多塞任何位元組的檔案用。
+async function downloadText(text, fname, bom = true) {
   const say = (m) => { $('#st-reason').textContent = m; };
   // 記事本、Keil 這類編輯器沒有 BOM 常會猜錯編碼，把中文註解讀成亂碼；
   // 存檔的位元組加上 UTF-8 BOM 才會被正確認出來。parseProject() 讀回來時會把它吃掉。
-  const withBom = '﻿' + text;
+  const withBom = bom ? '﻿' + text : text;
 
   const dl = window.claude && window.claude.use ? await window.claude.use('downloads').catch(() => null) : null;
   if (dl) {
@@ -414,6 +416,14 @@ async function downloadText(text, fname) {
 }
 async function exportCurrent() {
   await downloadText(serializeProject(), getFileName() + '.txt');
+}
+
+// 匯出成 .hex：目前組譯出來的 Intel HEX，直接餵給 s51_pgm 燒錄，不必開 Keil。
+// HEX 檔本身只有 ASCII（冒號、十六進位數字），沒有編碼問題；
+// 換成 CRLF 只是跟 Keil／燒錄工具產生的檔案長得一樣。
+async function exportHex() {
+  if (!current.hex) { $('#st-reason').textContent = '目前沒有組譯成功的結果，無法匯出 .hex'; return; }
+  await downloadText(current.hex.replace(/\r?\n/g, '\r\n'), getFileName() + '.hex', false);
 }
 
 // Keil µVision 是老式 Windows 程式，編輯器多半不認 UTF-8（不管有沒有 BOM），
@@ -495,6 +505,7 @@ $('#btn-zoom-fit').addEventListener('click', () => { boardZoom = setZoom(1); });
 
 $('#btn-export').addEventListener('click', exportCurrent);
 $('#btn-export-asm').addEventListener('click', exportAsm);
+$('#btn-export-hex').addEventListener('click', exportHex);
 rebuildFileList();
 
 // 打字時順手把草稿存起來，重新整理／關掉分頁都不會白做工

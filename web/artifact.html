@@ -10,6 +10,7 @@
       <input type="text" id="file-name" value="未命名" size="12" title="檔名（下載時會用這個名字）">
       <button id="btn-export" title="下載成純文字 .txt 檔（含接線資訊）">下載</button>
       <button id="btn-export-asm" title="下載成純 .asm 檔（不含接線，Big5 編碼給 Keil 開不會亂碼）">匯出 .asm</button>
+      <button id="btn-export-hex" title="下載成 .hex，可以直接用 s51_pgm 燒錄，不必開 Keil 組譯">匯出 .hex</button>
       <input type="file" id="file-input" accept=".txt,.asm,.a51,.s,.kt89,.hex,.ihx" hidden>
       <select id="sel-example" title="課本範例"><option value="">選擇範例…</option></select>
     </div>
