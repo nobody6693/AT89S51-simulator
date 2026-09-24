@@ -381,10 +381,13 @@ const getFileName = () => ($('#file-name').value.trim() || '未命名').replace(
 // 單檔版沒有那個東西，就用一般的 <a download>。兩條路都留著。
 async function downloadText(text, fname) {
   const say = (m) => { $('#st-reason').textContent = m; };
+  // 記事本、Keil 這類編輯器沒有 BOM 常會猜錯編碼，把中文註解讀成亂碼；
+  // 存檔的位元組加上 UTF-8 BOM 才會被正確認出來。parseProject() 讀回來時會把它吃掉。
+  const withBom = '﻿' + text;
 
   const dl = window.claude && window.claude.use ? await window.claude.use('downloads').catch(() => null) : null;
   if (dl) {
-    try { await dl.save({ filename: fname, data: text }); say('已下載 ' + fname); }
+    try { await dl.save({ filename: fname, data: withBom }); say('已下載 ' + fname); }
     catch (err) {
       const code = err && err.code;
       if (code === 'declined') say('已取消下載');
@@ -396,7 +399,7 @@ async function downloadText(text, fname) {
   if (window.self !== window.top) return copyFallback(text, fname, say);
 
   const a = document.createElement('a');
-  const url = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }));
+  const url = URL.createObjectURL(new Blob([withBom], { type: 'text/plain;charset=utf-8' }));
   a.href = url; a.download = fname;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
