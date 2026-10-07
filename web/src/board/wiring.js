@@ -49,6 +49,11 @@ export const DEFAULT_WIRING = {
 // 各範例的建議接線（載入範例時自動套用）
 const P8 = (p) => Array.from({ length: 8 }, (_, i) => `P${p}.${i}`);
 const P4 = (p, o) => Array.from({ length: 4 }, (_, i) => `P${p}.${o + i}`);
+const P8R = (p) => Array.from({ length: 8 }, (_, i) => `P${p}.${7 - i}`);   // 反過來：index 0 = P?.7
+// 課本的 4 位模組只接 P2.7~P2.4（左邊四位）；P2.3~P2.0 空著，鍵盤的讀回線才不會把右邊四位點亮
+const BOOK_SEG4 = { enabled: { seg7: true }, seg: P8R(0), digit: [...P8R(2).slice(0, 4), null, null, null, null], digitMode: 'direct' };
+const BOOK_SEG8 = { enabled: { seg7: true }, seg: P8R(0), digit: P8R(2), digitMode: 'direct' };
+const BOOK_SEG_KEY = { ...BOOK_SEG4, enabled: { seg7: true, keypad: true }, keyOut: P4(2, 0), keyIn: P4(2, 4) };
 export const EXAMPLE_WIRING = {
   '01': { enabled: {} },
   '02': { enabled: { keypad: true }, keyOut: P4(2, 0), keyIn: P4(2, 4), lcm: true },
@@ -64,9 +69,21 @@ export const EXAMPLE_WIRING = {
     seg: P8(0), digit: P8(2), matrixRow: P8(1), digitMode: 'direct',
     stepper: ['P3.3', 'P3.4', 'P3.5', 'P3.6'],
   },
+  // 課本第 3、4 章（快學 8051）的接法：
+  //   七段 a~dp 接 P0.7~P0.0（編碼表 bit7 = a），位選由左到右接 P2.7~P2.0
+  //   鍵盤掃描線 X0~X3 接 P2.4~P2.7、讀回線 Y0~Y3 接 P2.0~P2.3，跟七段共用 P2
+  // 照單元編號查；思考題（檔名多一個 T）改成 8 位的另外登記，沒登記的跟本題共用
+  'CH3-7-1': BOOK_SEG4, 'CH3-7-2': BOOK_SEG4, 'CH3-7-3': BOOK_SEG4, 'CH3-7-4': BOOK_SEG4,
+  'CH3-7-2T': BOOK_SEG8, 'CH3-7-3T': BOOK_SEG8, 'CH3-7-4T': BOOK_SEG8,
+  'CH3-7-5': BOOK_SEG_KEY,
+  'CH4-7-1': { enabled: {} },
+  'CH4-7-2': BOOK_SEG8, 'CH4-7-3': BOOK_SEG8,
 };
 export function wiringForExample(name) {
   if (EXAMPLE_WIRING[name]) return EXAMPLE_WIRING[name];
+  const unit = /^(CH\d-\d-\d)(T?)/.exec(name || '');
+  if (unit && EXAMPLE_WIRING[unit[1] + unit[2]]) return EXAMPLE_WIRING[unit[1] + unit[2]];
+  if (unit && EXAMPLE_WIRING[unit[1]]) return EXAMPLE_WIRING[unit[1]];
   const m = /^(\d\d)/.exec(name || '');
   return m ? EXAMPLE_WIRING[m[1]] || null : null;
 }
