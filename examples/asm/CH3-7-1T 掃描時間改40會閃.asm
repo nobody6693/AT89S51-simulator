@@ -1,49 +1,81 @@
-SEGP	EQU	P0
-SCANP	EQU	P2
-DIGITS	EQU	4
-SCAN_TIME	EQU	40
-START:	MOV	R4,#0
-LOOP0:	MOV	SCANP,#0FFH
-	MOV	DPTR,#DISP_DATA
-	MOV	A,R4
-	MOVC	A,@A+DPTR
-	MOV	DPTR,#CA_CODE
-	MOVC	A,@A+DPTR
-	MOV	SEGP,A
-	MOV	DPTR,#SCAN_CODE
-	MOV	A,R4
-	MOVC	A,@A+DPTR
-	MOV	SCANP,A
-	MOV	R7,#SCAN_TIME
-	CALL	DELAYx500us
-	INC	R4
-	CJNE	R4,#DIGITS,LOOP0
-	JMP	START
+;==== 3-7-1 思考題：SCAN_TIME 改成 40，看看會怎樣 ==================
+;
+; 電路：4 位共陽極七節顯示器模組
+;   P0.7~P0.0 經限流電阻接 a~dp（顯示信號，SEGP）
+;   P2.7~P2.4 經 1.5K 接 Q3~Q0 四顆 PNP 電晶體的基極，再接各位數的 com（掃描信號，SCANP）
+;   模擬器會自動套用這組接線（載入範例時左邊四位亮）
+;
+; 原理：掃描驅動。四位數的 a~dp 全部並聯，一次只讓一位數的 com 通電，
+;   每位數停 40×0.5ms = 20ms，掃完四位一圈 80ms。
+;   一圈不超過 16ms 的話，視覺暫留會讓人同時看到四個數字。
+; 思考題：課本要你把 SCAN_TIME 從 8 改成 200、40、2 觀察變化。
+;   200 → 每位數停 100ms，一圈 0.4 秒，看得出四個數字在輪流亮，根本不像同時顯示
+;   40  → 每位數停 20ms，一圈 80ms，超過視覺暫留的 16ms，四個數字看起來在閃
+;   2   → 每位數停 1ms，一圈 4ms，很穩定，但每位數只亮 25% 的時間所以比較暗
+;   這一版放的是 40，載入後可以看到閃爍；自己再改成 200 或 2 試試
+;
+; 流程：R4 當指標（0~3）
+;   1. 關掉所有掃描線（避免換位時殘影）
+;   2. 從 DISP_DATA 取第 R4 個要顯示的數字
+;   3. 用那個數字再去 CA_CODE 查七節顯示碼，送到 P0
+;   4. 從 SCAN_CODE 取第 R4 個掃描碼，送到 P2（這一位數亮起來）
+;   5. 延時 → R4+1 → 四位做完從頭再來
+SEGP	EQU	P0		;顯示資料輸出埠（接 a~dp）
+SCANP	EQU	P2		;掃描碼輸出埠（接 com3~com0）
+DIGITS	EQU	4		;顯示位數
+SCAN_TIME	EQU	40		;每位數的停留時間，單位 0.5ms
+START:	MOV	R4,#0		;指標歸零，從最左位開始
+LOOP0:	MOV	SCANP,#0FFH	;掃描線全部關掉（1 = 電晶體不導通），防止殘影
+	MOV	DPTR,#DISP_DATA	;DPTR 指向「要顯示的數字」表
+	MOV	A,R4		;A = 第幾位
+	MOVC	A,@A+DPTR	;查表：A = 這一位要顯示的數字（0~9）
+	MOV	DPTR,#CA_CODE	;DPTR 改指向七節顯示碼表
+	MOVC	A,@A+DPTR	;再查一次表：A = 該數字的七節顯示碼
+	MOV	SEGP,A		;送到 P0，a~dp 各段的亮暗就定了（但還沒選位）
+	MOV	DPTR,#SCAN_CODE	;DPTR 指向掃描碼表
+	MOV	A,R4		;A = 第幾位
+	MOVC	A,@A+DPTR	;查表：A = 只有這一位是 0 的掃描碼
+	MOV	SCANP,A		;送到 P2，這一位數的電晶體導通，數字亮起來
+	MOV	R7,#SCAN_TIME	;停留時間
+	CALL	DELAYx500us	;讓這一位亮一會兒
+	INC	R4		;下一位
+	CJNE	R4,#DIGITS,LOOP0	;還沒掃完四位就繼續
+	JMP	START		;掃完一圈從頭再來，永遠循環
+;==== 延時副程式：R7 × 0.5ms ============================
+; 12MHz 時鐘，一個機械週期 1us。DJNZ 佔 2 個週期，
+; 內迴圈 250 次 × 2us = 500us，外迴圈 R7 次 → 總共 R7 × 0.5ms
 DELAYx500us:
-D1:	MOV	R6,#250
-	DJNZ	R6,$
-	DJNZ	R7,D1
+D1:	MOV	R6,#250		;內迴圈次數
+	DJNZ	R6,$		;原地數 250 次 = 0.5ms
+	DJNZ	R7,D1		;外迴圈數 R7 次
 	RET
+;==== 要顯示的數字（由左到右）==========================
 DISP_DATA:
 	DB	8,0,5,1
+;==== 共陽極七節顯示碼表 =============================
+; 位元順序（bit7 → bit0）= a b c d e f g dp，共陽極 0 = 亮、1 = 暗
+; 每個碼最右邊都是 1：小數點 dp 不亮
+; 接線：P0.7=a P0.6=b P0.5=c P0.4=d P0.3=e P0.2=f P0.1=g P0.0=dp
 CA_CODE:
-	DB	00000011B
-	DB	10011111B
-	DB	00100101B
-	DB	00001101B
-	DB	10011001B
-	DB	01001001B
-	DB	01000001B
-	DB	00011111B
-	DB	00000001B
-	DB	00001001B
+	DB	00000011B	;0：a b c d e f 亮，g dp 暗
+	DB	10011111B	;1：只有 b c 亮
+	DB	00100101B	;2：a b d e g
+	DB	00001101B	;3：a b c d g
+	DB	10011001B	;4：b c f g
+	DB	01001001B	;5：a c d f g
+	DB	01000001B	;6：a c d e f g
+	DB	00011111B	;7：a b c
+	DB	00000001B	;8：全亮
+	DB	00001001B	;9：a b c d f g
+;==== 低態掃描碼表：哪一位元是 0，哪一位數的 PNP 電晶體就導通 ====
+; P2.7=最左位 … P2.0=最右位；4 位模組只用到前四個（P2.7~P2.4）
 SCAN_CODE:
-	DB	01111111B
-	DB	10111111B
-	DB	11011111B
-	DB	11101111B
-	DB	11110111B
-	DB	11111011B
-	DB	11111101B
-	DB	11111110B
+	DB	01111111B	;第 0 位（最左）
+	DB	10111111B	;第 1 位
+	DB	11011111B	;第 2 位
+	DB	11101111B	;第 3 位
+	DB	11110111B	;第 4 位
+	DB	11111011B	;第 5 位
+	DB	11111101B	;第 6 位
+	DB	11111110B	;第 7 位（最右）
 	END
