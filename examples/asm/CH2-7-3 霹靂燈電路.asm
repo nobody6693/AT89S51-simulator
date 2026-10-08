@@ -1,27 +1,44 @@
-LED	EQU	P1
+;==== 2-7-3 霹靂燈電路：單顆燈左右來回跑，不用按鈕 ========================
+;
+; 電路：主板就夠用，不用接線
+;   P1.7~P1.0 → 8 顆 LED（低態亮）；P1.0 是板子最左邊的 DS1
+;
+; 原理：2-7-2 的單燈移動做兩遍，一遍 RL（往高位元 = 畫面往右），
+;   一遍 RR（往低位元 = 畫面往左），接起來就是來回跑的霹靂燈（像霹靂車的車頭燈）。
+;   每一步停 0.1 秒，單程 7 步 + 端點停 0.1 秒，來回約 1.6 秒。
+;   注意 A 從頭到尾不重設：RL 那段走完 A 停在 11111111B 以外的某個位置（P1.7 亮），
+;   RR 那段就從那裡接著往回走，所以兩段之間不會跳。
+;
+; 流程：A = 0FEH（P1.0 亮）→ 向右 7 步 → 停 → 向左 7 步 → 停 → 回 START 重設 A
+LED	EQU	P1		;LED 輸出埠
 	ORG	0
-START:	MOV	A,#0FEH
-LEFT:	MOV	R0,#7
+START:	MOV	A,#0FEH		;11111110B：P1.0 亮
+;==== 往高位元走（畫面往右）==================================
+LEFT:	MOV	R0,#7		;7 步
 	MOV	LED,A
-LOOPL:	CALL	DELAY100ms
-	RL	A
-	ORL	A,#1
+LOOPL:	CALL	DELAY100ms	;停 0.1 秒
+	RL	A		;左旋一位
+	ORL	A,#1		;補回 bit0 = 1
 	MOV	LED,A
 	DJNZ	R0,LOOPL
-	CALL	DELAY100ms
-RIGHT:	MOV	R0,#7
-	MOV	LED,A
+	CALL	DELAY100ms	;到端點多停 0.1 秒
+;==== 往低位元走（畫面往左）==================================
+RIGHT:	MOV	R0,#7		;7 步
+	MOV	LED,A		;A 現在是 01111111B：P1.7 亮
 LOOPR:	CALL	DELAY100ms
-	RR	A
-	ORL	A,#10000000B
+	RR	A		;右旋一位
+	ORL	A,#10000000B	;補回 bit7 = 1
 	MOV	LED,A
 	DJNZ	R0,LOOPR
-	CALL	DELAY100ms
-	JMP	START
+	CALL	DELAY100ms	;到端點多停 0.1 秒
+	JMP	START		;再來一趟
+;==== 延時副程式：0.1 秒 ==================================
+; 12MHz 時鐘，一個機械週期 1us。DJNZ 佔 2 個週期：
+; 內迴圈 250 × 2us = 500us，外迴圈 200 次 → 100ms（加上迴圈本身的開銷約多 0.4%）
 DELAY100ms:
-	MOV	R7,#200
-D1:	MOV	R6,#250
-	DJNZ	R6,$
-	DJNZ	R7,D1
+	MOV	R7,#200		;外迴圈 200 次
+D1:	MOV	R6,#250		;內迴圈 250 次
+	DJNZ	R6,$		;原地數 250 次 = 0.5ms
+	DJNZ	R7,D1		;數滿 200 次 = 0.1 秒
 	RET
 	END

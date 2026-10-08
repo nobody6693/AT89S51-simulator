@@ -1,26 +1,46 @@
-PB	EQU	P2.0
-LED	EQU	P1
+;==== 2-7-2 LED 移動電路：按一下按鈕，單顆亮燈從 P1.0 走到 P1.7 ==========
+;
+; 電路：主板就夠用，不用接線
+;   P2.0 → 按鈕 PB3（按下接地讀 0）
+;   P1.7~P1.0 → 8 顆 LED DS8~DS1（低態亮：寫 0 亮、寫 1 暗）
+;
+; 原理：用 A 當燈號樣板，一次只有一個位元是 0（只亮一顆），
+;   RL A 把整個 A 左旋一位，0 就往高位元跑，等於亮的那顆燈移動一格。
+;   RL 是旋轉，bit7 會繞到 bit0 來，為了保證移過去的位置是 1（暗），每次旋轉後 ORL A,#1。
+;   初值 11111110B = P1.0 亮，旋轉 7 次走到 P1.7，一共 8 個位置。
+;   板子上 P1.0 是 DS1（最左邊那顆），所以畫面上是「由左往右」跑。
+;
+; 流程：
+;   1. P2.0 寫 1 當輸入；LED 全暗
+;   2. 等按鈕按下（讀到 0）
+;   3. 亮 P1.0，每 0.3 秒左旋一位，走 7 步到 P1.7
+;   4. 最後再停 0.3 秒，回到 START（LED 全暗，等下一次按）
+PB	EQU	P2.0		;按鈕
+LED	EQU	P1		;LED 輸出埠
 	ORG	0
-START:	SETB	PB
-	MOV	LED,#0FFH
-	JNB	PB,LEFT
-	JMP	START
-LEFT:	MOV	R0,#7
-	MOV	A,#11111110B
-	MOV	LED,A
-LOOP:	CALL	DELAY300ms
-	RL	A
-	ORL	A,#1
-	MOV	LED,A
-	DJNZ	R0,LOOP
-	CALL	DELAY300ms
-	JMP	START
+START:	SETB	PB		;P2.0 規劃成輸入
+	MOV	LED,#0FFH	;LED 全暗
+	JNB	PB,LEFT		;按鈕按下 → 開始移動
+	JMP	START		;沒按就等
+;==== 單燈移動 7 步 =========================================
+LEFT:	MOV	R0,#7		;要移 7 次
+	MOV	A,#11111110B	;只有 bit0 是 0：P1.0 亮
+	MOV	LED,A		;輸出
+LOOP:	CALL	DELAY300ms	;停 0.3 秒
+	RL	A		;左旋：0 往高位元移一格
+	ORL	A,#1		;補回 bit0 = 1，確保只有一個 0
+	MOV	LED,A		;輸出
+	DJNZ	R0,LOOP		;7 步走完
+	CALL	DELAY300ms	;最後那顆也停 0.3 秒
+	JMP	START		;回去等下一次按鈕
+;==== 延時副程式：0.3 秒 ==================================
+; 三層迴圈：內 250 × 2us = 0.5ms，中 200 次 = 0.1 秒，外 3 次 = 0.3 秒
 DELAY300ms:
-	MOV	R5,#3
-D0:	MOV	R7,#200
-D1:	MOV	R6,#250
-	DJNZ	R6,$
-	DJNZ	R7,D1
-	DJNZ	R5,D0
+	MOV	R5,#3		;外迴圈 3 次
+D0:	MOV	R7,#200		;中迴圈 200 次
+D1:	MOV	R6,#250		;內迴圈 250 次
+	DJNZ	R6,$		;0.5ms
+	DJNZ	R7,D1		;0.1 秒
+	DJNZ	R5,D0		;0.3 秒
 	RET
 	END

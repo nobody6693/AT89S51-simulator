@@ -1,26 +1,40 @@
-PB	EQU	P2.0
-LED	EQU	P1
+;==== 2-7-2 思考題：兩顆燈一起移，從 P1.7 P1.6 走到 P1.1 P1.0 ===========
+;
+; 電路同 2-7-2：P2.0 按鈕、P1 八顆 LED（低態亮）。
+;
+; 思考題：改成兩顆燈同時移動、方向相反。
+;   樣板 00111111B：bit7、bit6 是 0 → P1.7、P1.6 兩顆亮。
+;   RR A 右旋一位，兩個 0 一起往低位元跑；旋轉後 ORL A,#10000000B 把 bit7 補成 1，
+;   不然 bit0 繞到 bit7 時會多亮一顆。
+;   兩顆燈佔兩個位置，8 個位置只能移 6 次（7+6 → 1+0），所以 R0 = 6。
+;
+; 流程：等按鈕 → 亮 P1.7 P1.6 → 每 0.3 秒右旋一位，移 6 次 → 停 0.3 秒 → 回 START
+PB	EQU	P2.0		;按鈕
+LED	EQU	P1		;LED 輸出埠
 	ORG	0
-START:	SETB	PB
-	MOV	LED,#0FFH
-	JNB	PB,LEFT
+START:	SETB	PB		;P2.0 規劃成輸入
+	MOV	LED,#0FFH	;LED 全暗
+	JNB	PB,LEFT		;按鈕按下 → 開始
 	JMP	START
-LEFT:	MOV	R0,#6
-	MOV	A,#00111111B
+;==== 雙燈移動 6 步 =========================================
+LEFT:	MOV	R0,#6		;兩顆燈只能移 6 次
+	MOV	A,#00111111B	;bit7 bit6 = 0：P1.7 P1.6 亮
 	MOV	LED,A
-LOOP:	CALL	DELAY300ms
-	RR	A
-	ORL	A,#10000000B
+LOOP:	CALL	DELAY300ms	;停 0.3 秒
+	RR	A		;右旋：兩個 0 往低位元移一格
+	ORL	A,#10000000B	;補回 bit7 = 1
 	MOV	LED,A
-	DJNZ	R0,LOOP
+	DJNZ	R0,LOOP		;6 步走完
 	CALL	DELAY300ms
-	JMP	START
+	JMP	START		;回去等按鈕
+;==== 延時副程式：0.3 秒 ==================================
+; 三層迴圈：內 250 × 2us = 0.5ms，中 200 次 = 0.1 秒，外 3 次 = 0.3 秒
 DELAY300ms:
-	MOV	R5,#3
-D0:	MOV	R7,#200
-D1:	MOV	R6,#250
-	DJNZ	R6,$
-	DJNZ	R7,D1
-	DJNZ	R5,D0
+	MOV	R5,#3		;外迴圈 3 次
+D0:	MOV	R7,#200		;中迴圈 200 次
+D1:	MOV	R6,#250		;內迴圈 250 次
+	DJNZ	R6,$		;0.5ms
+	DJNZ	R7,D1		;0.1 秒
+	DJNZ	R5,D0		;0.3 秒
 	RET
 	END

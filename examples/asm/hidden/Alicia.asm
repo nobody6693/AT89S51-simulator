@@ -1,42 +1,58 @@
-Buzzer	EQU	P3.7
-RELD_H	EQU	30H
-RELD_L	EQU	31H
-TMP	EQU	32H
-ARP	EQU	2
-ARPL	EQU	4
-VOICE	EQU	33H
-SLICE	EQU	36H
+;==== Alicia —— 蜂鳴器單音演奏 ====================
+;
+; 由 MIDI 轉出來的：node tools/mid2asm.mjs "Alicia.mid" --speed=1.25 --arp=2 --voices=2 --lead=2
+; 419 個音、共 155.0 秒，音域 C3 ~ G#6（已加速 1.25 倍）（和弦分解：每片 20ms、最多 2 個聲部、旋律片 2 倍長）
+;
+; 蜂鳴器只有一支腳，只有高低兩種狀態，所以原曲的和弦一律只留最高音，
+; 力度與音色全部丟掉 —— 剩下的就是一條單音旋律線。
+;
+; 音高：Timer0 中斷翻轉 P3.7 產生方波
+; 節拍：Timer1 輪詢計時，樂譜長度以 10ms 為單位
+; 燈光：主板 P1 那 8 顆 LED 當音高條，音愈高亮愈多顆（不需要接任何線）
+; 每個音尾巴留 6ms 靜音，連續的同音才分得開；長度 bit 7 = 圓滑，不留靜音直接接下一個音。
+; 和弦：同時按著的音輪流放（快速分解），旋律一片 40ms、伴奏一片 20ms，最多 2 個聲部。
+Buzzer	EQU	P3.7		;蜂鳴器
+RELD_H	EQU	30H		;目前這個音的 Timer0 重載值(高位元組)
+RELD_L	EQU	31H		;                          (低位元組)
+TMP	EQU	32H		;TONE 的暫存
+ARP	EQU	2		;分解和弦：伴奏聲部一片放幾個 10ms
+ARPL	EQU	4		;             旋律聲部一片放幾個 10ms
+VOICE	EQU	33H		;和弦的聲部代號(最多 3 個：33H~35H)
+SLICE	EQU	36H		;這一片還剩幾個單位
+;==== 中斷向量 =======================================
 	ORG	0
 	JMP	START
-	ORG	0BH
+	ORG	0BH		;Timer0 溢位
 	JMP	T0ISR
+;==== 主程式 =========================================
 	ORG	30H
 START:	MOV	SP,#5FH
-	SETB	Buzzer
-	MOV	P1,#0FFH
-	MOV	TMOD,#11H
-	SETB	ET0
+	SETB	Buzzer		;蜂鳴器初始狀態(不響)
+	MOV	P1,#0FFH	;LED 全滅
+	MOV	TMOD,#11H	;T0、T1 都用模式 1(16 位元)
+	SETB	ET0		;開 Timer0 中斷(負責音高)
 	SETB	EA
-REPLAY:	MOV	R4,#HIGH(SONG)
+REPLAY:	MOV	R4,#HIGH(SONG)	;樂譜指標放 R4:R5，DPTR 要留給查表
 	MOV	R5,#LOW(SONG)
 NEXT:	MOV	DPH,R4
 	MOV	DPL,R5
 	CLR	A
-	MOVC	A,@A+DPTR
-	JB	ACC.7,CHORD
+	MOVC	A,@A+DPTR	;音高代號(0 = 休止符)
+	JB	ACC.7,CHORD	;bit 7 = 和弦，低 7 位是聲部數
 	MOV	R0,A
 	MOV	A,#1
-	MOVC	A,@A+DPTR
+	MOVC	A,@A+DPTR	;長度(10ms 為單位)
 	MOV	R1,A
-	JZ	REPLAY
-	MOV	A,#2
+	JZ	REPLAY		;長度 0 = 曲終，從頭再來
+	MOV	A,#2		;樂譜指標前進兩個位元組
 	CALL	ADV
 	CALL	PLAY
 	JMP	NEXT
+;==== 和弦列：[80H+聲部數, 代號..., 長度] ===========
 CHORD:	ANL	A,#7FH
-	MOV	R3,A
+	MOV	R3,A		;聲部數
 	MOV	R2,#0
-CH1:	MOV	A,R2
+CH1:	MOV	A,R2		;把各聲部的代號抄到 VOICE
 	INC	A
 	MOVC	A,@A+DPTR
 	MOV	R1,A
@@ -49,25 +65,27 @@ CH1:	MOV	A,R2
 	MOV	A,R2
 	XRL	A,R3
 	JNZ	CH1
-	MOV	A,R3
+	MOV	A,R3		;長度接在聲部代號後面
 	INC	A
 	MOVC	A,@A+DPTR
 	MOV	R1,A
-	MOV	A,R3
+	MOV	A,R3		;樂譜指標前進 聲部數+2
 	ADD	A,#2
 	CALL	ADV
 	CALL	PLAYC
 	JMP	NEXT
+;==== 樂譜指標 R4:R5 前進 A 個位元組 =================
 ADV:	ADD	A,R5
 	MOV	R5,A
 	CLR	A
 	ADDC	A,R4
 	MOV	R4,A
 	RET
+;==== 換音高：R0 = 代號 → 裝填 Timer0、燈條、開始發聲 ====
 TONE:	MOV	A,R0
 	DEC	A
-	MOV	TMP,A
-	RL	A
+	MOV	TMP,A		;代號-1，要用三次
+	RL	A		;音高表每個音兩個位元組
 	MOV	DPTR,#TONES
 	MOVC	A,@A+DPTR
 	MOV	RELD_H,A
@@ -77,55 +95,58 @@ TONE:	MOV	A,R0
 	MOV	DPTR,#TONES
 	MOVC	A,@A+DPTR
 	MOV	RELD_L,A
-	MOV	A,TMP
+	MOV	A,TMP		;燈條：音愈高亮愈多顆
 	MOV	DPTR,#BARS
 	MOVC	A,@A+DPTR
 	MOV	P1,A
 	MOV	TH0,RELD_H
 	MOV	TL0,RELD_L
-	SETB	TR0
+	SETB	TR0		;開始發聲
 	RET
+;==== 奏一個音：R0 = 音高代號，R1 = 長度 =============
 PLAY:	MOV	A,R0
-	JZ	PREST
+	JZ	PREST		;代號 0 = 休止符
 	CALL	TONE
 	SJMP	PBODY
-PREST:	CLR	TR0
+PREST:	CLR	TR0		;休止符：收聲(前一個音若是圓滑的就還在響)、燈全滅
 	SETB	Buzzer
 	MOV	P1,#0FFH
 PBODY:	MOV	A,R1
-	JB	ACC.7,PLEG
+	JB	ACC.7,PLEG	;bit 7 = 圓滑：整段有聲，尾巴不留靜音
 	DEC	A
-	JZ	PTAIL
+	JZ	PTAIL		;只有一個單位就直接走尾巴
 	MOV	R6,A
-P10:	MOV	R7,#10
+P10:	MOV	R7,#10		;一個單位 = 10ms
 	CALL	DELAY
 	DJNZ	R6,P10
-PTAIL:	MOV	R7,#4
+PTAIL:	MOV	R7,#4		;最後一個單位：4ms 有聲
 	CALL	DELAY
-	CLR	TR0
+	CLR	TR0		;收聲
 	CLR	TF0
 	SETB	Buzzer
 	MOV	P1,#0FFH
-	MOV	R7,#6
+	MOV	R7,#6		;          6ms 靜音，連續同音才分得開
 	CALL	DELAY
 	RET
-PLEG:	ANL	A,#7FH
+PLEG:	ANL	A,#7FH		;圓滑：每個單位 10ms 都有聲，放完直接回去接下一個音
 	MOV	R6,A
 PL10:	MOV	R7,#10
 	CALL	DELAY
 	DJNZ	R6,PL10
 	RET
+;==== 奏一個和弦：VOICE = 聲部代號，R3 = 聲部數，R1 = 長度 ==
+; 各聲部輪流放：旋律 ARPL 個單位、伴奏 ARP 個單位(快速分解)，最後一片交給 PBODY 收尾
 PLAYC:	MOV	A,R1
 	ANL	A,#7FH
-	MOV	R6,A
-	MOV	R2,#0
+	MOV	R6,A		;還剩幾個單位
+	MOV	R2,#0		;輪到第幾個聲部
 PC1:	MOV	A,#VOICE
 	ADD	A,R2
 	MOV	R0,A
 	MOV	A,@R0
 	MOV	R0,A
-	CALL	TONE
-	MOV	A,R2
+	CALL	TONE		;換到這個聲部
+	MOV	A,R2		;第一個聲部是旋律，那一片比較長
 	JNZ	PCACC
 	MOV	A,#ARPL
 	SJMP	PCLEN
@@ -134,71 +155,81 @@ PCLEN:	MOV	SLICE,A
 	MOV	A,R6
 	CLR	C
 	SUBB	A,SLICE
-	JC	PCLAST
-	JZ	PCLAST
+	JC	PCLAST		;剩不到一片
+	JZ	PCLAST		;剛好剩一片
 	MOV	R6,A
-PCD:	MOV	R7,#10
+PCD:	MOV	R7,#10		;放這一片
 	CALL	DELAY
 	DJNZ	SLICE,PCD
-	INC	R2
+	INC	R2		;下一個聲部，放完一輪就回到第一個
 	MOV	A,R2
 	XRL	A,R3
 	JNZ	PC1
 	MOV	R2,#0
 	SJMP	PC1
-PCLAST:	MOV	A,R1
+PCLAST:	MOV	A,R1		;最後一片：剩下的單位交給 PBODY，圓滑旗標照舊
 	ANL	A,#80H
 	ORL	A,R6
 	MOV	R1,A
 	JMP	PBODY
+;==== 延遲 R7 毫秒(Timer1 輪詢) ======================
+; 不能用 DJNZ 數迴圈 —— 蜂鳴器的中斷很密集會把迴圈拖慢，硬體計時器才準。
 DELAY:	MOV	TH1,#HIGH(65536-1000)
 	MOV	TL1,#LOW(65536-1000)
 	CLR	TF1
 	SETB	TR1
-DLY1:	JNB	TF1,$
+DLY1:	JNB	TF1,$		;等這 1ms 走完
 	CLR	TF1
-	MOV	TH1,#HIGH(65536-1000)
+	MOV	TH1,#HIGH(65536-1000)	;模式 1 不會自動重載
 	MOV	TL1,#LOW(65536-1000)
 	DJNZ	R7,DLY1
 	CLR	TR1
 	RET
-T0ISR:	MOV	TH0,RELD_H
+;==== Timer0 中斷：翻轉蜂鳴器腳位 ====================
+; 沒有動到 A 和 PSW，所以不必 PUSH。
+T0ISR:	MOV	TH0,RELD_H	;模式 1 不會自動重載
 	MOV	TL0,RELD_L
 	CPL	Buzzer
 	RETI
+;==== 音高表：Timer0 的重載值 ========================
+; 12MHz → 1 個計數 = 1us，每次中斷翻轉一次，所以數的是半週期：
+;   重載值 = 65536 - 500000/頻率 + 9   (+9 補中斷反應吃掉的機械週期)
 TONES:
-	DB	0F1H,1BH
-	DB	0F2H,0BCH
-	DB	0F3H,7BH
-	DB	0F4H,0DAH
-	DB	0F6H,12H
-	DB	0F6H,0A1H
-	DB	0F7H,28H
-	DB	0F7H,0A8H
-	DB	0F8H,20H
-	DB	0F8H,92H
-	DB	0F9H,62H
-	DB	0F9H,0C2H
-	DB	0FAH,71H
-	DB	0FBH,0DH
-	DB	0FBH,55H
-	DB	0FBH,0D8H
-	DB	0FCH,15H
-	DB	0FCH,4DH
-	DB	0FCH,83H
-	DB	0FCH,0B6H
-	DB	0FCH,0E5H
-	DB	0FDH,3DH
-	DB	0FDH,8BH
-	DB	0FDH,0AFH
-	DB	0FDH,0F1H
-	DB	0FEH,2BH
-	DB	0FEH,0DCH
+	DB	0F1H,1BH	; 1 = C3    130.8Hz  半週期 3822us
+	DB	0F2H,0BCH	; 2 = D3    146.8Hz  半週期 3405us
+	DB	0F3H,7BH	; 3 = D#3   155.6Hz  半週期 3214us
+	DB	0F4H,0DAH	; 4 = F3    174.6Hz  半週期 2863us
+	DB	0F6H,12H	; 5 = G3    196.0Hz  半週期 2551us
+	DB	0F6H,0A1H	; 6 = G#3   207.7Hz  半週期 2408us
+	DB	0F7H,28H	; 7 = A3    220.0Hz  半週期 2273us
+	DB	0F7H,0A8H	; 8 = A#3   233.1Hz  半週期 2145us
+	DB	0F8H,20H	; 9 = B3    246.9Hz  半週期 2025us
+	DB	0F8H,92H	;10 = C4    261.6Hz  半週期 1911us
+	DB	0F9H,62H	;11 = D4    293.7Hz  半週期 1703us
+	DB	0F9H,0C2H	;12 = D#4   311.1Hz  半週期 1607us
+	DB	0FAH,71H	;13 = F4    349.2Hz  半週期 1432us
+	DB	0FBH,0DH	;14 = G4    392.0Hz  半週期 1276us
+	DB	0FBH,55H	;15 = G#4   415.3Hz  半週期 1204us
+	DB	0FBH,0D8H	;16 = A#4   466.2Hz  半週期 1073us
+	DB	0FCH,15H	;17 = B4    493.9Hz  半週期 1012us
+	DB	0FCH,4DH	;18 = C5    523.3Hz  半週期 956us
+	DB	0FCH,83H	;19 = C#5   554.4Hz  半週期 902us
+	DB	0FCH,0B6H	;20 = D5    587.3Hz  半週期 851us
+	DB	0FCH,0E5H	;21 = D#5   622.3Hz  半週期 804us
+	DB	0FDH,3DH	;22 = F5    698.5Hz  半週期 716us
+	DB	0FDH,8BH	;23 = G5    784.0Hz  半週期 638us
+	DB	0FDH,0AFH	;24 = G#5   830.6Hz  半週期 602us
+	DB	0FDH,0F1H	;25 = A#5   932.3Hz  半週期 536us
+	DB	0FEH,2BH	;26 = C6   1046.5Hz  半週期 478us
+	DB	0FEH,0DCH	;27 = G#6  1661.2Hz  半週期 301us
+;==== 燈條圖樣：音愈高亮愈多顆(低態亮) ==============
 BARS:
 	DB	0FEH,0FEH,0FEH,0FEH,0FCH,0FCH,0FCH,0F8H
 	DB	0F8H,0F8H,0F8H,0F0H,0F0H,0F0H,0E0H,0E0H
 	DB	0E0H,0C0H,0C0H,0C0H,0C0H,80H,80H,80H
 	DB	00H,00H,00H
+;==== 樂譜：[代號, 長度] 或 [80H+聲部數, 代號..., 長度]；長度 10ms 為單位，bit 7 = 圓滑 ==
+; 代號 0 = 休止符；最後補 0,0 當結束記號
 SONG:
 	DB	26,32, 23,32, 130,22,10,160, 130,22,11,160, 130,22,12,64, 26,32, 25,32, 130,21,11,160
 	DB	130,21,12,160, 130,21,13,64, 23,32, 130,22,5,32, 130,15,10,160, 130,15,11,160, 130,15,12,160, 130,15,13,32
@@ -253,5 +284,5 @@ SONG:
 	DB	130,22,17,180, 130,22,20,12, 130,20,14,52, 130,18,14,132, 18,156, 130,18,5,160, 130,18,11,160, 130,18,12,160
 	DB	130,18,14,64, 130,20,18,32, 130,21,18,32, 10,4, 130,14,10,4, 130,18,14,4, 130,20,18,5, 130,21,20,5
 	DB	130,23,21,6, 130,26,23,255, 130,26,23,113
-	DB	0,0
+	DB	0,0			;曲終 → 從頭再來
 	END

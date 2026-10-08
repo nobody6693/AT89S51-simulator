@@ -1,26 +1,46 @@
-Switch	EQU	P0.0
-Buzzer	EQU	P3.7
+;==== 2-7-1 嗶嗶電路：指撥開關撥 ON，蜂鳴器就一直嗶 ==================
+;
+; 電路：主板就夠用，不用接線
+;   P0.0 → 指撥開關 SW1 第 1 位（撥 ON 接地讀 0，OFF 由提升電阻讀 1）
+;   P3.7 → 蜂鳴器（經 PNP 電晶體，寫 0 導通發聲，寫 1 不響）
+;
+; 原理：方波發聲。蜂鳴器是壓電片，給它 1kHz 的方波就會響。
+;   1kHz 週期 1ms = 低 0.5ms + 高 0.5ms，所以「清 0 → 延時 0.5ms → 設 1 → 延時 0.5ms」
+;   重複 100 次就是響 0.1 秒，再靜音 0.1 秒，聽起來就是一聲一聲的「嗶、嗶、嗶」。
+;
+; 流程：
+;   1. 把 P0.0 寫 1（準輸入：8051 的腳位要先寫 1 才能當輸入讀）
+;   2. 讀 P0.0：是 0（撥 ON）就去嗶一聲，是 1 就回頭再讀
+;   3. 嗶完靜音 0.1 秒再回到 START，所以開關一直撥著就一直嗶
+Switch	EQU	P0.0		;指撥開關
+Buzzer	EQU	P3.7		;蜂鳴器
 	ORG	0
-START:	SETB	Switch
-	SETB	Buzzer
-	JNB	Switch,Beep
-	JMP	START
-Beep:	MOV	R0,#100
-LOOP:	CLR	Buzzer
-	CALL	DELAY500us
-	SETB	Buzzer
-	CALL	DELAY500us
-	DJNZ	R0,LOOP
-	CALL	DELAY100ms
-	JMP	START
+START:	SETB	Switch		;P0.0 寫 1，規劃成輸入
+	SETB	Buzzer		;蜂鳴器先關掉（1 = 不響）
+	JNB	Switch,Beep	;開關撥 ON（讀到 0）→ 去嗶
+	JMP	START		;沒撥就一直等
+;==== 嗶一聲：1kHz 響 0.1 秒，靜音 0.1 秒 =====================
+Beep:	MOV	R0,#100		;100 個週期 × 1ms = 0.1 秒
+LOOP:	CLR	Buzzer		;蜂鳴器通電（低態）
+	CALL	DELAY500us	;0.5ms
+	SETB	Buzzer		;蜂鳴器斷電
+	CALL	DELAY500us	;0.5ms → 一個週期 1ms = 1kHz
+	DJNZ	R0,LOOP		;100 個週期
+	CALL	DELAY100ms	;靜音 0.1 秒，聲音才會一聲一聲分開
+	JMP	START		;回去重新看開關
+;==== 延時副程式：0.5ms =================================
+; 一個機械週期 1us，DJNZ 佔 2 個週期，250 × 2us = 500us
 DELAY500us:
 	MOV	R7,#250
-	DJNZ	R7,$
+	DJNZ	R7,$		;原地數 250 次
 	RET
+;==== 延時副程式：0.1 秒 ==================================
+; 12MHz 時鐘，一個機械週期 1us。DJNZ 佔 2 個週期：
+; 內迴圈 250 × 2us = 500us，外迴圈 200 次 → 100ms（加上迴圈本身的開銷約多 0.4%）
 DELAY100ms:
-	MOV	R7,#200
-D1:	MOV	R6,#250
-	DJNZ	R6,$
-	DJNZ	R7,D1
+	MOV	R7,#200		;外迴圈 200 次
+D1:	MOV	R6,#250		;內迴圈 250 次
+	DJNZ	R6,$		;原地數 250 次 = 0.5ms
+	DJNZ	R7,D1		;數滿 200 次 = 0.1 秒
 	RET
 	END
