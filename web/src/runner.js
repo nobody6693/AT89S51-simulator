@@ -20,6 +20,7 @@ export class Runner {
   start() {
     if (this.running) return;
     this.running = true;
+    this.sim.running = true;          // UI 要知道模擬有沒有在跑（暫停時按鍵放開不必等）
     this.stopReason = '';
     this.lastT = performance.now();
     this.carryUs = 0;
@@ -31,6 +32,7 @@ export class Runner {
   stop(reason = '手動暫停') {
     if (!this.running) return;
     this.running = false;
+    this.sim.running = false;
     this.stopReason = reason;
     if (this._raf) cancelAnimationFrame(this._raf);
     this._raf = null;

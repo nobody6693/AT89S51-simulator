@@ -350,12 +350,30 @@ export class BoardView {
       const cap = el('circle', { cx: P(x + 12), cy: P(y + 12), r: P(7.5), fill: '#5e5e5e', stroke: '#2b2b2b', 'stroke-width': 1.5 }, b);
       txt(g, P(x + 12), P(397), `${BUTTONS[i].name} ${BUTTONS[i].sub}`,
         { 'font-size': 12, fill: '#ffd0d4', 'text-anchor': 'middle' });
-      const press = (v) => this.sim.buttons.press(i, v);
-      b.addEventListener('mousedown', () => press(1)); b.addEventListener('mouseup', () => press(0)); b.addEventListener('mouseleave', () => press(0));
-      b.addEventListener('touchstart', (e) => { e.preventDefault(); press(1); }, { passive: false });
-      b.addEventListener('touchend', () => press(0));
+      const [down, up] = this._pressable((v) => this.sim.buttons.press(i, v));
+      b.addEventListener('mousedown', down); b.addEventListener('mouseup', up); b.addEventListener('mouseleave', up);
+      b.addEventListener('touchstart', (e) => { e.preventDefault(); down(); }, { passive: false });
+      b.addEventListener('touchend', up);
       this.buttons.push(cap);
     }
+  }
+
+  // 回傳 [down, up]：按鍵至少要被模擬「看到」MIN_HOLD_US 微秒才放開。
+  // 滑鼠、觸控板輕點、手指一碰，按下和放開常常只隔十幾毫秒，兩個事件都發生在
+  // 同一次模擬更新之間，程式根本沒機會讀到按鍵（偏偏掃描鍵盤的程式一圈要好幾毫秒）。
+  // 所以放開時如果模擬還沒跑夠，就排到模擬時間到了才放。
+  _pressable(set) {
+    const MIN_HOLD_US = 30000;
+    let t0 = 0, held = false, gen = 0;
+    const down = () => { if (held) return; held = true; gen++; t0 = this.sim.cpu.cycles; set(1); };
+    const up = () => {
+      if (!held) return;
+      held = false;
+      const due = t0 + MIN_HOLD_US, g = gen;
+      if (due <= this.sim.cpu.cycles || !this.sim.running) set(0);
+      else this.sim.at(due, () => { if (g === gen && !held) set(0); });
+    };
+    return [down, up];
   }
 
   // ==================== KDM+ ====================
@@ -418,6 +436,7 @@ export class BoardView {
 
     // 4×4 鍵盤
     this.keys = [];
+    this.keyPress = [];
     const kx = [682, 724, 765, 806], ky = [262, 297, 332, 367];
     const face = ['0', '4', '8', 'C', '1', '5', '9', 'D', '2', '6', 'A', 'E', '3', '7', 'B', 'F'];
     for (let row = 0; row < 4; row++) for (let col = 0; col < 4; col++) {
@@ -427,10 +446,11 @@ export class BoardView {
       const cap = el('ellipse', { cx: P(x + 15), cy: P(y + 12), rx: P(8), ry: P(6.5), fill: C.keyCap }, k);
       txt(g, P(x - 1), P(y - 3), `PB${n}`, { 'font-size': 12 });
       txt(g, P(x + 34), P(y + 16), face[row * 4 + col], { 'font-size': 18, 'font-weight': 'bold' });
-      const press = (v) => this.sim.keypad.press(n, v);
-      k.addEventListener('mousedown', () => press(1)); k.addEventListener('mouseup', () => press(0)); k.addEventListener('mouseleave', () => press(0));
-      k.addEventListener('touchstart', (e) => { e.preventDefault(); press(1); }, { passive: false });
-      k.addEventListener('touchend', () => press(0));
+      const [down, up] = this._pressable((v) => this.sim.keypad.press(n, v));
+      this.keyPress[n] = [down, up];       // 實體鍵盤的 0~9、A~F 也走同一條路
+      k.addEventListener('mousedown', down); k.addEventListener('mouseup', up); k.addEventListener('mouseleave', up);
+      k.addEventListener('touchstart', (e) => { e.preventDefault(); down(); }, { passive: false });
+      k.addEventListener('touchend', up);
       this.keys[n] = cap;           // 照 PB 編號放，不是照畫的順序
     }
     txt(g, P(840), P(364), '鍵盤組', { 'font-size': 15 });

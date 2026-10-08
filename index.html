@@ -454,7 +454,7 @@ button.primary.running { box-shadow: 0 0 12px rgba(255,176,0,.7), 0 0 30px rgba(
       <span id="st-cycles">0 µs</span>
       <span id="st-reason"></span>
       <span id="st-hits"></span>
-      <span id="st-build">版本 2026/10/8 11:26:32</span>
+      <span id="st-build">版本 2026/10/8 16:26:24</span>
     </div>
   </header>
 
@@ -2387,7 +2387,22 @@ class Sim {
     this.sortedAddrs = [...this.lineByAddr.keys()].sort((a, b) => a - b);
     this.reset();
   }
+  // 在「模擬時間」到了某個週期數之後執行 fn（每幀由 frame() 檢查）。
+  // 給 UI 用：按鍵放開要等模擬真的跑過一段時間，不能用真實時間的 setTimeout。
+  at(cycle, fn) { (this.timers || (this.timers = [])).push([cycle, fn]); }
+  _runTimers() {
+    if (!this.timers || !this.timers.length) return;
+    const now = this.cpu.cycles, due = [];
+    this.timers = this.timers.filter((t) => { if (t[0] <= now) { due.push(t[1]); return false; } return true; });
+    for (const fn of due) fn();
+  }
+  // 重設時週期數歸零，還沒到期的計時全部立刻執行（放開按鍵之類），不要丟掉
+  flushTimers() {
+    const all = this.timers || []; this.timers = [];
+    for (const t of all) t[1]();
+  }
   reset() {
+    this.flushTimers();
     this.cpu.reset();
     this.lcd.reset(); this.spi.reset(); this.i2c.reset(); this.stepper.reset();
     this.leds.reset(); this.buzzer.reset(); this.display.reset();
@@ -2410,6 +2425,7 @@ class Sim {
   }
   // 每幀由 runner 呼叫；回傳 UI 需要的取樣
   frame(frameCycles) {
+    this._runTimers();
     const out = {
       leds: this.leds.frame(),
       buzzer: this.buzzer.frame(frameCycles),
@@ -2581,6 +2597,7 @@ class Runner {
   start() {
     if (this.running) return;
     this.running = true;
+    this.sim.running = true;          // UI 要知道模擬有沒有在跑（暫停時按鍵放開不必等）
     this.stopReason = '';
     this.lastT = performance.now();
     this.carryUs = 0;
@@ -2592,6 +2609,7 @@ class Runner {
   stop(reason = '手動暫停') {
     if (!this.running) return;
     this.running = false;
+    this.sim.running = false;
     this.stopReason = reason;
     if (this._raf) cancelAnimationFrame(this._raf);
     this._raf = null;
@@ -3224,12 +3242,30 @@ class BoardView {
       const cap = el('circle', { cx: P(x + 12), cy: P(y + 12), r: P(7.5), fill: '#5e5e5e', stroke: '#2b2b2b', 'stroke-width': 1.5 }, b);
       txt(g, P(x + 12), P(397), `${BUTTONS[i].name} ${BUTTONS[i].sub}`,
         { 'font-size': 12, fill: '#ffd0d4', 'text-anchor': 'middle' });
-      const press = (v) => this.sim.buttons.press(i, v);
-      b.addEventListener('mousedown', () => press(1)); b.addEventListener('mouseup', () => press(0)); b.addEventListener('mouseleave', () => press(0));
-      b.addEventListener('touchstart', (e) => { e.preventDefault(); press(1); }, { passive: false });
-      b.addEventListener('touchend', () => press(0));
+      const [down, up] = this._pressable((v) => this.sim.buttons.press(i, v));
+      b.addEventListener('mousedown', down); b.addEventListener('mouseup', up); b.addEventListener('mouseleave', up);
+      b.addEventListener('touchstart', (e) => { e.preventDefault(); down(); }, { passive: false });
+      b.addEventListener('touchend', up);
       this.buttons.push(cap);
     }
+  }
+
+  // 回傳 [down, up]：按鍵至少要被模擬「看到」MIN_HOLD_US 微秒才放開。
+  // 滑鼠、觸控板輕點、手指一碰，按下和放開常常只隔十幾毫秒，兩個事件都發生在
+  // 同一次模擬更新之間，程式根本沒機會讀到按鍵（偏偏掃描鍵盤的程式一圈要好幾毫秒）。
+  // 所以放開時如果模擬還沒跑夠，就排到模擬時間到了才放。
+  _pressable(set) {
+    const MIN_HOLD_US = 30000;
+    let t0 = 0, held = false, gen = 0;
+    const down = () => { if (held) return; held = true; gen++; t0 = this.sim.cpu.cycles; set(1); };
+    const up = () => {
+      if (!held) return;
+      held = false;
+      const due = t0 + MIN_HOLD_US, g = gen;
+      if (due <= this.sim.cpu.cycles || !this.sim.running) set(0);
+      else this.sim.at(due, () => { if (g === gen && !held) set(0); });
+    };
+    return [down, up];
   }
 
   // ==================== KDM+ ====================
@@ -3292,6 +3328,7 @@ class BoardView {
 
     // 4×4 鍵盤
     this.keys = [];
+    this.keyPress = [];
     const kx = [682, 724, 765, 806], ky = [262, 297, 332, 367];
     const face = ['0', '4', '8', 'C', '1', '5', '9', 'D', '2', '6', 'A', 'E', '3', '7', 'B', 'F'];
     for (let row = 0; row < 4; row++) for (let col = 0; col < 4; col++) {
@@ -3301,10 +3338,11 @@ class BoardView {
       const cap = el('ellipse', { cx: P(x + 15), cy: P(y + 12), rx: P(8), ry: P(6.5), fill: C.keyCap }, k);
       txt(g, P(x - 1), P(y - 3), `PB${n}`, { 'font-size': 12 });
       txt(g, P(x + 34), P(y + 16), face[row * 4 + col], { 'font-size': 18, 'font-weight': 'bold' });
-      const press = (v) => this.sim.keypad.press(n, v);
-      k.addEventListener('mousedown', () => press(1)); k.addEventListener('mouseup', () => press(0)); k.addEventListener('mouseleave', () => press(0));
-      k.addEventListener('touchstart', (e) => { e.preventDefault(); press(1); }, { passive: false });
-      k.addEventListener('touchend', () => press(0));
+      const [down, up] = this._pressable((v) => this.sim.keypad.press(n, v));
+      this.keyPress[n] = [down, up];       // 實體鍵盤的 0~9、A~F 也走同一條路
+      k.addEventListener('mousedown', down); k.addEventListener('mouseup', up); k.addEventListener('mouseleave', up);
+      k.addEventListener('touchstart', (e) => { e.preventDefault(); down(); }, { passive: false });
+      k.addEventListener('touchend', up);
       this.keys[n] = cap;           // 照 PB 編號放，不是照畫的順序
     }
     txt(g, P(840), P(364), '鍵盤組', { 'font-size': 15 });
@@ -5307,6 +5345,19 @@ window.addEventListener('keydown', (e) => {
   else if (e.key === 'F7') { e.preventDefault(); clearTimeout(editTimer); recompileFromEditor(true); }
   else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'r') { e.preventDefault(); runner.reset(); afterLoad(); }
 });
+
+// 實體鍵盤：0~9、A~F 對應 4x4 鍵盤的 PB0~PB15（在輸入框、編輯器裡打字時不攔截）
+{
+  const PAD = '0123456789abcdef';
+  const typing = (t) => t && (/^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName) || t.isContentEditable);
+  const padKey = (e, i) => {
+    if (e.ctrlKey || e.metaKey || e.altKey || e.repeat || typing(e.target) || !e.key || e.key.length !== 1) return;
+    const n = PAD.indexOf(e.key.toLowerCase());
+    if (n >= 0 && board.keyPress && board.keyPress[n]) board.keyPress[n][i]();
+  };
+  window.addEventListener('keydown', (e) => padKey(e, 0));
+  window.addEventListener('keyup', (e) => padKey(e, 1));
+}
 
 // 初始畫面
 regs.update(); updateStatus(); board.update({});

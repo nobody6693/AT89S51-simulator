@@ -76,7 +76,22 @@ export class Sim {
     this.sortedAddrs = [...this.lineByAddr.keys()].sort((a, b) => a - b);
     this.reset();
   }
+  // 在「模擬時間」到了某個週期數之後執行 fn（每幀由 frame() 檢查）。
+  // 給 UI 用：按鍵放開要等模擬真的跑過一段時間，不能用真實時間的 setTimeout。
+  at(cycle, fn) { (this.timers || (this.timers = [])).push([cycle, fn]); }
+  _runTimers() {
+    if (!this.timers || !this.timers.length) return;
+    const now = this.cpu.cycles, due = [];
+    this.timers = this.timers.filter((t) => { if (t[0] <= now) { due.push(t[1]); return false; } return true; });
+    for (const fn of due) fn();
+  }
+  // 重設時週期數歸零，還沒到期的計時全部立刻執行（放開按鍵之類），不要丟掉
+  flushTimers() {
+    const all = this.timers || []; this.timers = [];
+    for (const t of all) t[1]();
+  }
   reset() {
+    this.flushTimers();
     this.cpu.reset();
     this.lcd.reset(); this.spi.reset(); this.i2c.reset(); this.stepper.reset();
     this.leds.reset(); this.buzzer.reset(); this.display.reset();
@@ -99,6 +114,7 @@ export class Sim {
   }
   // 每幀由 runner 呼叫；回傳 UI 需要的取樣
   frame(frameCycles) {
+    this._runTimers();
     const out = {
       leds: this.leds.frame(),
       buzzer: this.buzzer.frame(frameCycles),

@@ -563,5 +563,18 @@ window.addEventListener('keydown', (e) => {
   else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'r') { e.preventDefault(); runner.reset(); afterLoad(); }
 });
 
+// 實體鍵盤：0~9、A~F 對應 4x4 鍵盤的 PB0~PB15（在輸入框、編輯器裡打字時不攔截）
+{
+  const PAD = '0123456789abcdef';
+  const typing = (t) => t && (/^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName) || t.isContentEditable);
+  const padKey = (e, i) => {
+    if (e.ctrlKey || e.metaKey || e.altKey || e.repeat || typing(e.target) || !e.key || e.key.length !== 1) return;
+    const n = PAD.indexOf(e.key.toLowerCase());
+    if (n >= 0 && board.keyPress && board.keyPress[n]) board.keyPress[n][i]();
+  };
+  window.addEventListener('keydown', (e) => padKey(e, 0));
+  window.addEventListener('keyup', (e) => padKey(e, 1));
+}
+
 // 初始畫面
 regs.update(); updateStatus(); board.update({});
