@@ -1,48 +1,49 @@
-;==== 2-7-4 思考題：馬達正反轉控制（用兩顆 LED 當正轉、反轉指示燈）=============
+;==== 2-7-4 思考題：馬達正反轉控制（用兩顆 LED 當正轉、反轉指示燈） ====
 ;
-; 電路：主板就夠用，不用接線
-;   P2.0 → PB3（FORWARD 正轉）、P2.1 → PB4（REVERSE 反轉）、P3.2 → PB1（OFF 停止）
-;   P1.0 → DS1 正轉指示燈、P1.1 → DS2 反轉指示燈（低態亮）
+; 思考題要求：
+; 把「ON 開、OFF 關」改成馬達的「正轉、反轉、停止」三個鍵。
+; 互鎖：正轉中不能直接反轉（真馬達會燒），要先按 OFF 停下來才能換方向。
+; 用 P1.0 當正轉指示燈、P1.1 當反轉指示燈，OFF 永遠優先。
 ;
-; 思考題：把開關式控制延伸成馬達正反轉。重點是「互鎖」：
-;   正轉中按反轉不能直接反轉（真馬達會燒），要先按 OFF 停下來才能換方向。
-;   程式用指示燈的狀態當互鎖條件：REV_LED 亮著就不理 FWD 鍵，FWD_LED 亮著就不理 REV 鍵。
-;   OFF 永遠優先，放在迴圈最前面判斷。
+; 怎麼從範例（CH2-7-4 開關式控制電路）改成這一題：
+; 1. 開關重新命名：ON（P2.0）改叫 FWD 正轉；原本 OFF 的腳位 P2.1 讓給 REV 反轉；
+;    OFF 改接 PB1（P3.2）。新增兩個指示燈位址 FWD_LED（P1.0）、REV_LED（P1.1）。
+; 2. START 多規劃一支輸入 REV；LOOP 多判斷一個 REV 鍵，OFF 還是排第一（優先）。
+; 3. LED_ON 改成 LED_FWD：原本 MOV LED,#0 讓八顆全亮，現在只用 CLR FWD_LED 亮正轉燈。
+; 4. 互鎖：LED_FWD 動作前先看 REV_LED，已經亮著（反轉中）就不動作直接回 LOOP。
+; 5. 照 LED_FWD 複製一份 LED_REV，把 FWD 換成 REV、判斷改看 FWD_LED。
+; 其餘一行都沒動，跟範例一樣。
+; 電路、接線與原理都跟範例相同，請先看範例檔頭的說明；改過的地方在程式裡用【改】【加】標出來。
 ;
-; 流程：三支腳寫 1 當輸入 → LED 全暗 → 迴圈：OFF → 全暗；FWD → 反轉燈沒亮才亮正轉燈；
-;   REV → 正轉燈沒亮才亮反轉燈。每個鍵都先延時 0.05 秒消彈跳、等放開再動作
-FWD    EQU  P2.0       ;設定 FORWARD 開關位址（KT89S51 板上 PB3）
-REV    EQU  P2.1       ;設定 REVERSE 開關位址（KT89S51 板上 PB4）
-OFF    EQU  P3.2       ;設定 OFF 開關位址（KT89S51 板上 PB1）
-LED    EQU  P1         ;設定 LED 位址（正反轉指示燈）
-FWD_LED EQU P1.0       ;正轉指示燈
-REV_LED EQU P1.1       ;反轉指示燈
+FWD    EQU  P2.0       ;【改】ON 改名 FWD：正轉（KT89S51 板上 PB3）
+REV    EQU  P2.1       ;【改】原 OFF 的腳位給反轉（PB4）
+OFF    EQU  P3.2       ;【改】OFF 改接 PB1（INT0 那顆）
+LED    EQU  P1         ;設定 LED 位址
+FWD_LED EQU P1.0       ;【加】正轉指示燈
+REV_LED EQU P1.1       ;【加】反轉指示燈
 ;==== 主程式 =========================================
        ORG  0          ;程式從 0 位址開始
-START: SETB FWD        ;規劃 FORWARD 為輸入埠
-       SETB REV        ;規劃 REVERSE 為輸入埠
+START: SETB FWD        ;【改】規劃 FWD 為輸入埠
+       SETB REV        ;【加】規劃 REV 為輸入埠
        SETB OFF        ;規劃 OFF 為輸入埠
-       MOV  LED,#0FFH  ;關閉所有 LED
-LOOP:  JNB  OFF,DO_OFF ;OFF 優先：先判斷 OFF 開關
-       JNB  FWD,DO_FWD ;判斷 FORWARD 開關
-       JNB  REV,DO_REV ;判斷 REVERSE 開關
+       MOV  LED,#0FFH  ;關閉 LED
+LOOP:  JNB  OFF,LED_OFF ;判斷 OFF 開關（OFF 優先，排第一）
+       JNB  FWD,LED_FWD ;【改】判斷 FWD 開關
+       JNB  REV,LED_REV ;【加】判斷 REV 開關
        JMP  LOOP       ;重新判斷開關
-;==== OFF：全部 LED 關閉 =================================
-DO_OFF: CALL DELAY50ms ;延時 0.05 秒
-       JNB  OFF,DO_OFF ;判斷 OFF 開關放開沒？
-       MOV  LED,#0FFH  ;全部 LED 關閉
+LED_OFF: CALL DELAY50ms ;延時 0.05 秒
+       JNB  OFF,LED_OFF ;判斷 OFF 開關放開沒？
+       MOV  LED,#0FFH  ;關閉 LED
        JMP  LOOP       ;重新判斷開關
-;==== FORWARD：REV_LED 關閉時才點亮 FWD_LED =====================
-DO_FWD: CALL DELAY50ms ;延時 0.05 秒
-       JNB  FWD,DO_FWD ;判斷 FORWARD 開關放開沒？
-       JNB  REV_LED,LOOP ;REV_LED 亮著（反轉中）就不動作
-       CLR  FWD_LED    ;點亮 FWD_LED（正轉）
+LED_FWD: CALL DELAY50ms ;延時 0.05 秒
+       JNB  FWD,LED_FWD ;【改】判斷 FWD 開關放開沒？
+       JNB  REV_LED,LOOP ;【加】互鎖：REV_LED 亮著（反轉中）就不動作
+       CLR  FWD_LED    ;【改】只點亮正轉燈（原本 MOV LED,#0 全亮）
        JMP  LOOP       ;重新判斷開關
-;==== REVERSE：FWD_LED 關閉時才點亮 REV_LED ======================
-DO_REV: CALL DELAY50ms ;延時 0.05 秒
-       JNB  REV,DO_REV ;判斷 REVERSE 開關放開沒？
-       JNB  FWD_LED,LOOP ;FWD_LED 亮著（正轉中）就不動作
-       CLR  REV_LED    ;點亮 REV_LED（反轉）
+LED_REV: CALL DELAY50ms ;【加】照 LED_FWD 複製，FWD 換成 REV
+       JNB  REV,LED_REV ;判斷 REV 開關放開沒？
+       JNB  FWD_LED,LOOP ;互鎖：FWD_LED 亮著（正轉中）就不動作
+       CLR  REV_LED    ;點亮反轉燈
        JMP  LOOP       ;重新判斷開關
 ;==== 延時副程式(0.05 秒) ==============================
 DELAY50ms:
