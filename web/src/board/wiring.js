@@ -43,6 +43,9 @@ export const DEFAULT_WIRING = {
   sda: null, scl: null, i2cWp: null,
   ties: {},
   jp11: true,
+  serial: 'none',                // 串列埠外接：見 board/serial.js 的 SERIAL_KINDS
+  peerProgram: null,             // serial='board2' 時第二塊板子跑哪支範例；null = 跟第一塊一樣
+
   enabled: { seg7: false, matrix: false, keypad: false, stepper: false, spi: false, i2c: false },
 };
 
@@ -78,6 +81,14 @@ export const EXAMPLE_WIRING = {
   'CH3-7-5': BOOK_SEG_KEY,
   'CH4-7-1': { enabled: {} },
   'CH4-7-2': BOOK_SEG8, 'CH4-7-3': BOOK_SEG8,
+  // 課本第 5 章：串列埠外接的東西不在 KDM+ 上，見 board/serial.js
+  'CH5-4-1': { enabled: {}, serial: 'shift165' },
+  'CH5-4-2': { enabled: {}, serial: 'shift164' },
+  'CH5-4-3': { enabled: {}, serial: 'loopback' },
+  'CH5-4-4': { enabled: {}, serial: 'board2' },
+  'CH5-4-4T 第一塊P20控制對方LED.asm': { enabled: {}, serial: 'board2', peerProgram: 'CH5-4-4T 第二塊P20P21控制對方移位.asm' },
+  'CH5-4-4T 第二塊P20P21控制對方移位.asm': { enabled: {}, serial: 'board2', peerProgram: 'CH5-4-4T 第一塊P20控制對方LED.asm' },
+  'CH5-4-5': { enabled: {}, serial: 'pc' },
 };
 export function wiringForExample(name) {
   if (EXAMPLE_WIRING[name]) return EXAMPLE_WIRING[name];

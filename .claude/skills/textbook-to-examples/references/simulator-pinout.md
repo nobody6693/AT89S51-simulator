@@ -50,6 +50,21 @@
 
 測試裡按鍵：`s.keypad.press(n, 1)` 按、`press(n, 0)` 放。
 
+## 串列埠外接（第 5 章）
+
+不在 KDM+ 上，`EXAMPLE_WIRING` 的 `serial` 欄位登記（`web/src/board/serial.js`），板子下方會多一塊「串列埠外接」：
+
+| `serial` | 電路 | 測試裡怎麼操作 |
+|---|---|---|
+| `loopback` | P3.0、P3.1 短路 | 撥主板 SW1 |
+| `shift165` | out→P3.0、clock→P3.1、shift/load→P3.2 | `s.serial.set165(i, 1)`，i = 0~7 是 A~H；H→D0、A→D7 |
+| `shift164` | A、B→P3.0、clock→P3.1 | 讀 `s.serial.q164`（bit0 = QA）或 `s.serial.frame().led164`（index 0 = DS1 = QH） |
+| `board2` | 第二塊板子 RxD、TxD 交叉 | `s.serial.peer` 是另一個 Sim；要跑別支程式就登記 `peerProgram`（完整檔名），`sim.load` 帶 `peerHex` |
+| `pc` | 虛擬 PC_RS232 | `s.serial.pcSend(byte)`，PC 收到的在 `s.uartOut` |
+
+UART 是位元級的（`cpu.js`），會真的動 P3.0、P3.1。兩塊板子每個機械週期同步一次，
+Mode 2 一位不到 3 個機械週期，差一條指令就會讀錯。寫測試時 Mode 1/3 一筆約 2ms、Mode 2 約 29us、Mode 0 8us。
+
 ## 其他
 
 - LED 陣列：`matrixRow` 8 條列線，與七段共用位選。

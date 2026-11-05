@@ -17,11 +17,13 @@ export class PortBus {
     this.pins = new Uint8Array([0xFF, 0xFF, 0xFF, 0xFF]);
     this.extLow = new Uint8Array(4);
     this.extHigh = new Uint8Array(4);
+    this.altLow = new Uint8Array(4);     // 第二功能（串列埠 TxD、Mode 0 的 RxD）拉低的腳
     this.contention = new Uint8Array(4); // CPU 拉低 vs 外部推高
     this.drivers = [];
     this.writeListeners = [];   // (port, newLatch, oldLatch)
     this.pinListeners = [];     // (port, newPins, oldPins)
     this.pullupP0 = true;
+    this.fastDriver = null;              // 見 refresh()
     this._dirty = true;
   }
 
@@ -46,8 +48,48 @@ export class PortBus {
     this.latch[port] = value & 0xFF;
     if (old !== this.latch[port]) {
       for (const fn of this.writeListeners) fn(port, this.latch[port], old);
-      this.recompute();
+      if (port === 3 && !((old ^ this.latch[port]) & 0xF8)) this.refresh(3); else this.recompute();
     }
+  }
+
+  // 第二功能輸出：P3.0/P3.1 被串列埠接管時用。跟 latch 是 AND 的關係（latch 要是 1 才看得到波形）
+  setAlt(port, lowMask) {
+    if (this.altLow[port] === lowMask) return;
+    this.altLow[port] = lowMask;
+    this.refresh(port);
+  }
+
+  // 快速路徑：P3.0~P3.2 變了，但只有 fastDriver（串列埠外接）在看這幾支腳，
+  // 就不必把每個週邊重算一遍。Mode 0 一秒鐘有上百萬個邊緣，全部重算會慢到跑不動。
+  refresh(port) {
+    const d = this.fastDriver;
+    if (!d || !d.fastOK()) { this.recompute(); return; }
+    if (this._busy) { this._pendingFast = true; return; }
+    this._busy = true;
+    let full = false;
+    try {
+      let others = 0;
+      for (const o of this.drivers) if (o !== d) others |= o._low[port];
+      for (let guard = 0; guard < 8; guard++) {
+        this._pendingFast = false;
+        const old = this.pins[port], base = (this.latch[port] | this.extHigh[port]) & ~others & ~this.altLow[port];
+        let low = 0, v = base;                 // 從乾淨狀態開始收斂，短路才放得開
+        for (let iter = 0; iter < 4; iter++) {
+          v = base & ~low;
+          this.pins[port] = v;
+          const r = d.update(this.pins, this.latch);
+          const lo = r.low ? r.low[port] : 0;
+          if (lo === low) break;
+          low = lo;
+        }
+        d._low[port] = low;
+        this.extLow[port] = others | low;
+        if (old !== v) for (const fn of this.pinListeners) fn(port, v, old);
+        if (this._pending) { full = true; break; }
+        if (!this._pendingFast) break;
+      }
+    } finally { this._busy = false; }
+    if (full) this.recompute();
   }
 
   // 週邊狀態改變時呼叫（撥開關、按鍵…）
@@ -59,9 +101,9 @@ export class PortBus {
     this._busy = true;
     try {
       for (let guard = 0; guard < 8; guard++) {
-        this._pending = false;
+        this._pending = false; this._pendingFast = false;
         this._recomputeOnce();
-        if (!this._pending) break;
+        if (!this._pending && !this._pendingFast) break;
       }
     } finally { this._busy = false; }
   }
@@ -107,7 +149,7 @@ export class PortBus {
     for (let p = 0; p < 4; p++) {
       let weakHigh = this.latch[p];
       if (p === 0 && !this.pullupP0) weakHigh = 0; // P0 無上拉 → 浮接讀 0
-      out[p] = ((weakHigh | this.extHigh[p]) & ~this.extLow[p]) & 0xFF;
+      out[p] = ((weakHigh | this.extHigh[p]) & ~this.extLow[p] & ~this.altLow[p]) & 0xFF;
     }
     return out;
   }
@@ -118,6 +160,7 @@ export class PortBus {
 
   reset() {
     this.latch.fill(0xFF);
+    this.altLow.fill(0);
     this.recompute();
   }
 }

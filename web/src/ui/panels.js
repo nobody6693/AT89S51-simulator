@@ -3,6 +3,7 @@ import { SFR, SFR_NAMES } from '../cpu/sfr.js';
 import { disasm } from '../cpu/disasm.js';
 import { hex2, hex4, pinName } from '../board/util.js';
 import { CONNECTORS, DEFAULT_WIRING } from '../board/wiring.js';
+import { SERIAL_KINDS } from '../board/serial.js';
 
 const h = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
 // 編輯器的行高由 CSS 的 --lh 決定（手機上字小、行也矮），要用時去讀，不要寫死
@@ -453,6 +454,16 @@ export class WiringPanel {
     clr.addEventListener('click', () => { if (this.api.disconnectAll) this.api.disconnectAll(); this.build(); });
 
     const cfg = this.sim.wiring.cfg;
+    const sr = h('div', 'wtools');
+    sr.appendChild(h('span', null, '串列埠外接（P3.0、P3.1）：'));
+    const ssel = document.createElement('select'); sr.appendChild(ssel);
+    for (const [v, n] of SERIAL_KINDS) { const o = h('option', null, n); o.value = v; ssel.appendChild(o); }
+    ssel.value = cfg.serial || 'none';
+    ssel.addEventListener('change', () => {
+      this.sim.wiring.set({ ...this.sim.wiring.cfg, serial: ssel.value, peerProgram: null });
+      this.api.onWiringChanged();
+    });
+    root.appendChild(sr);
     const groups = [
       ['七段顯示器', [['段 a–dp (JP3)', cfg.seg, ['a','b','c','d','e','f','g','dp']], ['位選 X0–X7 (JP4)', cfg.digit, ['X0','X1','X2','X3','X4','X5','X6','X7']], ['74LS138 (JP5)', cfg.dec138, ['A','B','C']]]],
       ['LED 陣列', [['列 R1–R8 (JP6)', cfg.matrixRow, ['R1','R2','R3','R4','R5','R6','R7','R8']]]],

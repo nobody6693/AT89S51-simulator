@@ -9,6 +9,7 @@ import { Stepper } from './board/stepper.js';
 import { Spi } from './board/spi.js';
 import { I2c } from './board/i2c.js';
 import { RailTies } from './board/rails.js';
+import { SerialExt } from './board/serial.js';
 
 // 邏輯分析儀：記錄所有埠腳位的每次變化
 class LogicAnalyzer {
@@ -55,6 +56,7 @@ export class Sim {
     this.spi = new Spi(this);
     this.i2c = new I2c(this);
     this.rails = new RailTies(this);
+    this.serial = new SerialExt(this);
     this.la = new LogicAnalyzer(this);
     this.uartOut = [];
     this.cpu.onUartTx = (b) => { this.uartOut.push(b); if (this.uartOut.length > 4000) this.uartOut.shift(); };
@@ -74,6 +76,7 @@ export class Sim {
       if (!this.addrByLine.has(line)) this.addrByLine.set(line, addr);
     }
     this.sortedAddrs = [...this.lineByAddr.keys()].sort((a, b) => a - b);
+    this.serial.onLoad(program);
     this.reset();
   }
   // 在「模擬時間」到了某個週期數之後執行 fn（每幀由 frame() 檢查）。
@@ -96,6 +99,7 @@ export class Sim {
     this.lcd.reset(); this.spi.reset(); this.i2c.reset(); this.stepper.reset();
     this.leds.reset(); this.buzzer.reset(); this.display.reset();
     this.keypad.releaseAll();
+    this.serial.reset();
     this.la.clear();
     this.bus.invalidate();
     this.uartOut = [];
@@ -115,6 +119,7 @@ export class Sim {
   // 每幀由 runner 呼叫；回傳 UI 需要的取樣
   frame(frameCycles) {
     this._runTimers();
+    if (this.serial.peer) this.serial.peer.frame(frameCycles);   // 第二塊板子的畫面取樣與蜂鳴器事件也要消化掉
     const out = {
       leds: this.leds.frame(),
       buzzer: this.buzzer.frame(frameCycles),

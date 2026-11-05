@@ -18,6 +18,7 @@ import { BoardView } from './board.js';
 import { BuzzerAudio } from './audio.js';
 import { RegistersPanel, EditorPanel, DisasmPanel, MemoryPanel, WavePanel, PeriphPanel, WiringPanel, OutputPanel } from './panels.js';
 import { hex2, hex4 } from '../board/util.js';
+import { SerialPanel } from './serial-panel.js';
 import { PROGRAMS } from '../programs.js';
 import { DEFAULT_WIRING, wiringForExample } from '../board/wiring.js';
 import { assemble } from '../asm/assembler.js';
@@ -54,6 +55,7 @@ const runner = new Runner(sim, {
     }
     if (activeTab === 'wave') wave.draw();
     updateAnalog();
+    serialPanel.update();
   },
   // 重新執行時要把上一次的停止原因清掉，不然狀態列會一直寫著「手動暫停」
   onStart() { $('#st-reason').textContent = ''; setRunButton(); },
@@ -85,6 +87,7 @@ const wiringApi = {
 };
 try { const saved = localStorage.getItem('kt89s51.wiring.v2'); if (saved) sim.wiring.set(JSON.parse(saved)); } catch {}
 const wiring = new WiringPanel($('#wiring'), sim, wiringApi);
+const serialPanel = new SerialPanel($('#serial-ext'), sim);
 
 // ---------- 狀態列 ----------
 function updateStatus() {
@@ -136,6 +139,13 @@ function toggleBpAddr(addr) {
 let current = { name: '', source: '', isHex: false, hex: null };
 const isAsm = (name) => /\.(asm|a51|s)$/i.test(name || '');
 
+// 雙機互傳：第二塊板子要跑別支程式時（思考題兩塊不一樣），把它組譯好一起交給 sim.load
+function peerProgram() {
+  const c = sim.wiring.cfg, p = c.serial === 'board2' && c.peerProgram && byName.get(c.peerProgram);
+  if (!p) return {};
+  const r = assemble(p.source, { codeSize: 4096 });
+  return r.ok ? { peerHex: r.hex, peerName: p.name } : {};
+}
 async function compileAndLoad(src, name) {
   current = { name, source: src, isHex: false, hex: null };
   const chip = CHIP;
@@ -147,7 +157,7 @@ async function compileAndLoad(src, name) {
   if (res.ok) {
     current.hex = res.hex;
     sim.chip = res.chip;
-    sim.load({ hex: res.hex, lines: res.lines, symbols: res.symbols, name });
+    sim.load({ hex: res.hex, lines: res.lines, symbols: res.symbols, name, ...peerProgram() });
     memory.setSymbols(res.symbols);
     bpLines.clear(); sim.cpu.breakpoints.clear();
     source.setSource(src, res.diagnostics);
@@ -259,7 +269,7 @@ function recompileFromEditor(alsoLoad) {
   // 保留接線與執行狀態，只換程式
   const wasRunning = runner.running;
   sim.chip = chip;
-  sim.load({ hex: r.hex, lines: r.lines, symbols: r.symbols, name: current.name });
+  sim.load({ hex: r.hex, lines: r.lines, symbols: r.symbols, name: current.name, ...peerProgram() });
   memory.setSymbols(r.symbols);
   sim.cpu.breakpoints.clear();
   for (const ln of bpLines) { const a = sim.addrByLine.get(ln); if (a !== undefined) sim.cpu.breakpoints.add(a); }

@@ -260,7 +260,7 @@ kbd { background: var(--well); border: 1px solid var(--line2); border-bottom-wid
   #main { display: flex; flex-direction: column; gap: 12px; padding: 8px; }
   #left { display: contents; }
   #right { overflow: visible; min-height: 0; margin-top: 0; }
-  #board-wrap { order: 1; } #warnings { order: 2; } #right { order: 3; } #dock { order: 4; }
+  #board-wrap { order: 1; } #serial-ext { order: 1; } #warnings { order: 2; } #right { order: 3; } #dock { order: 4; }
   .tab, #src-box { max-height: 65vh; }
   #tab-wave { height: 50vh; }
 
@@ -415,3 +415,16 @@ button.primary.running { box-shadow: 0 0 12px rgba(255,176,0,.7), 0 0 30px rgba(
   #source .editor .gut { width: 44px; padding-right: 7px; }
   #source .editor .gut div.cur::after { left: 14px; }
 }
+
+/* 板子下方的「串列埠外接」（課本第 5 章的 74165、74164、第二塊板子、PC） */
+#serial-ext[hidden] { display: none; }
+#serial-ext .sx-note { color: var(--muted); font-size: 14px; margin-bottom: 8px; }
+#serial-ext .sx-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; }
+#serial-ext .sx-label { width: 74px; flex: none; color: var(--muted); font-size: 14px; }
+#serial-ext .sx-val { color: var(--accent); font-family: var(--mono); font-size: 14px; word-break: break-all; }
+#serial-ext .sx-cell { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 58px; }
+#serial-ext .sx-pin { color: var(--muted); font-size: 12px; white-space: nowrap; }
+#serial-ext .sx-sw, #serial-ext .sx-btn { min-width: 46px; padding: 3px 6px; touch-action: none; }
+#serial-ext .sx-sw.on, #serial-ext .sx-btn.on { background: var(--accent); color: var(--well); }
+#serial-ext .sx-led { width: 16px; height: 16px; border-radius: 50%; background: #ff3b30; opacity: .12; box-shadow: 0 0 6px #ff3b30; }
+#serial-ext .sx-input { width: 44px; font-family: var(--mono); }

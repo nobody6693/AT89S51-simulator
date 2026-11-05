@@ -4,7 +4,7 @@
 import { SFR, PSW_CY, PSW_AC, PSW_OV, PSW_P, bitAddrToByte, bitAddrToMask,
          TCON_IE0, TCON_IE1, TCON_IT0, TCON_IT1, TCON_TF0, TCON_TF1, TCON_TR0, TCON_TR1,
          IE_EA, IE_EX0, IE_ET0, IE_EX1, IE_ET1, IE_ES,
-         SCON_RI, SCON_TI, SCON_REN } from './sfr.js';
+         SCON_RI, SCON_TI, SCON_REN, SCON_RB8, SCON_TB8, SCON_SM2 } from './sfr.js';
 import { PortBus } from './ports.js';
 
 const PORT_ADDR = { 0x80: 0, 0x90: 1, 0xA0: 2, 0xB0: 3 };
@@ -27,14 +27,15 @@ export class CPU8051 {
     this.prevINT0 = 1; this.prevINT1 = 1;
     this.prevT0 = 1; this.prevT1 = 1;
 
-    // UART
-    this.uartTxCountdown = 0;   // 剩餘週期
-    this.uartTxByte = 0;
-    this.uartRxQueue = [];
-    this.uartRxCountdown = 0;
-    this.uartRxShift = 0;
-    this.onUartTx = null;       // callback(byte)
+    // UART：一個位元一個位元動 P3.0/P3.1，狀態在 uartReset() 初始化
+    this.onUartTx = null;       // callback(byte)：一個位元組送完（TI 被設起來）時呼叫
     this.t1OverflowsForBaud = 0;
+    this.uartReset();
+
+    // 兩塊板子同步：peer 的時間跟著這顆 CPU 一個機械週期一個機械週期走
+    this.peer = null;
+    this.deferTicks = false;
+    this.owedTicks = 0;
 
     // 追蹤（除錯用）
     this.onSfrWrite = null;     // (addr, val)
@@ -58,8 +59,8 @@ export class CPU8051 {
     this.halted = false;
     this.intHighActive = this.intLowActive = false;
     this.prevINT0 = this.prevINT1 = this.prevT0 = this.prevT1 = 1;
-    this.uartTxCountdown = 0; this.uartRxCountdown = 0;
-    this.uartRxQueue = [];
+    this.uartReset();
+    this.owedTicks = 0;
     this.hitBreakpoint = false;
   }
 
@@ -359,12 +360,26 @@ export class CPU8051 {
 
   // ---------- 週期推進：計時器、UART、外部中斷取樣 ----------
   tick(n) {
-    for (let i = 0; i < n; i++) {
-      this.cycles++;
-      this.tickTimers();
-      this.tickUart();
-      this.sampleExternalInts();
+    if (this.deferTicks) { this.owedTicks += n; return; }   // 被別顆 CPU 帶著走：先欠著，一週期還一個
+    for (let i = 0; i < n; i++) this.tickOne();
+  }
+  tickOne() {
+    this.cycles++;
+    this.tickTimers();
+    this.tickUart();
+    this.sampleExternalInts();
+    if (this.peer) this.peer.stepCycle();
+  }
+  // 給另一塊板子呼叫：往前走剛好一個機械週期。指令一次做完，週期慢慢還。
+  // Mode 2 一個位元不到 3 個機械週期，兩邊差一條指令的時間就會讀錯位元，所以不能一次跑一條指令。
+  stepCycle() {
+    if (this.owedTicks === 0) {
+      this.deferTicks = true;
+      this.step();
+      this.deferTicks = false;
     }
+    this.owedTicks--;
+    this.tickOne();
   }
 
   tickTimers() {
@@ -482,49 +497,130 @@ export class CPU8051 {
   }
 
   // ---------- UART ----------
-  uartBitCycles() {
-    // 回傳每 bit 的機械週期數
-    const scon = this.sfr[SFR.SCON - 0x80];
-    const mode = scon >> 6;
-    const smod = (this.sfr[SFR.PCON - 0x80] & 0x80) ? 2 : 1;
-    if (mode === 0) return 1;
-    if (mode === 2) return 64 / smod;
-    // mode 1/3：Timer1 mode 2 溢位率 / (32/smod)
-    const th1 = this.sfr[SFR.TH1 - 0x80];
-    const overflowCycles = 256 - th1;
-    return Math.max(1, Math.round(overflowCycles * 32 / smod));
+  // 位元級：TxD 真的會在 P3.1 送出波形、RxD 真的從 P3.0 讀，所以外接 74164/74165、
+  // 短路 P3.0 與 P3.1、接另一塊板子，都是靠腳位電位在動，邏輯分析儀也看得到。
+  //   Mode 0：同步移位，RxD 是資料、TxD 是移位脈波，每個機械週期一位（OSC/12）
+  //   Mode 1：起始 + 8 位 + 停止，鮑率由 Timer 1 溢位決定
+  //   Mode 2：起始 + 8 位 + TB8 + 停止，鮑率 OSC/64（SMOD=1 時 OSC/32）
+  //   Mode 3：同 Mode 2 的格式，鮑率同 Mode 1
+  uartReset() {
+    this.uartRxQueue = [];       // 外部（PC）整個位元組送進來，不經過腳位
+    this.rxVirtual = -1;
+    this.txPending = false; this.txIdx = -1; this.txByte = 0; this.txNinth = 0; this.txPhase = 0;
+    this.rxK = -1; this.rxPhase = 0; this.rxShift = 0; this.prevRxd = 1;
+    this.m0Tx = 0; this.m0Rx = 0; this.m0Shift = 0; this.m0Byte = 0;
+    this.t1OverflowsForBaud = 0;
+    this.bus.setAlt(3, 0);
+  }
+
+  // 目前設定的鮑率（bps），給面板顯示；Timer 1 沒開的話 Mode 1/3 是 0
+  uartBaud() {
+    const mode = this.sfr[SFR.SCON - 0x80] >> 6;
+    const smod = this.sfr[SFR.PCON - 0x80] & 0x80 ? 1 : 0;
+    if (mode === 0) return 1000000;
+    if (mode === 2) return smod ? 375000 : 187500;
+    if (!(this.sfr[SFR.TCON - 0x80] & TCON_TR1)) return 0;
+    if ((this.sfr[SFR.TMOD - 0x80] >> 4 & 3) !== 2) return 0;   // 非自動重載的用法這裡不估
+    return 1000000 / ((256 - this.sfr[SFR.TH1 - 0x80]) * (smod ? 16 : 32));
   }
 
   uartTransmit(byte) {
-    this.sfr[SFR.SBUF - 0x80] = byte;
-    this.uartTxByte = byte;
-    const mode = this.sfr[SFR.SCON - 0x80] >> 6;
-    const bits = mode === 0 ? 8 : (mode === 1 ? 10 : 11);
-    this.uartTxCountdown = this.uartBitCycles() * bits;
+    const scon = this.sfr[SFR.SCON - 0x80];
+    if ((scon >> 6) === 0) { this.m0Byte = byte; this.m0Tx = 8; return; }
+    this.txByte = byte;
+    this.txNinth = scon & SCON_TB8 ? 1 : 0;   // 寫 SBUF 的當下 TB8 就鎖進第 9 位
+    this.txPending = true;                    // 等下一次除頻器進位才開始
   }
 
   uartReceive(byte) { this.uartRxQueue.push(byte); }
 
   tickUart() {
-    if (this.uartTxCountdown > 0) {
-      if (--this.uartTxCountdown === 0) {
-        this.sfr[SFR.SCON - 0x80] |= SCON_TI;
-        if (this.onUartTx) this.onUartTx(this.uartTxByte);
+    const SCON_I = SFR.SCON - 0x80;
+    const scon = this.sfr[SCON_I];
+    const mode = scon >> 6;
+    const ovf = this.t1OverflowsForBaud; this.t1OverflowsForBaud = 0;
+    if (mode === 0) { this.uartMode0(scon); return; }
+
+    // dt：這個機械週期走了幾分之幾個位元。都是 2 的次方分之幾，浮點數加起來不會有誤差。
+    const smod = this.sfr[SFR.PCON - 0x80] & 0x80;
+    let dt;
+    if (mode === 2) dt = smod ? 0.375 : 0.1875;        // 12 / 32、12 / 64
+    else dt = ovf * (smod ? 0.0625 : 0.03125);         // 溢位 16 次（SMOD=0 要 32 次）一個位元
+
+    this.txPhase += dt;
+    if (this.txPhase >= 1) { this.txPhase -= 1; this.uartTxBit(mode); }
+
+    const rxd = this.bus.pins[3] & 1;
+    if (!(scon & SCON_REN)) { this.rxK = -1; this.rxVirtual = -1; this.prevRxd = rxd; return; }
+    if (this.rxVirtual >= 0) {
+      this.rxPhase += dt;
+      if (this.rxPhase >= 9.5) { const v = this.rxVirtual; this.rxVirtual = -1; this.uartRxDone(v, 1); }
+    } else if (this.rxK < 0) {
+      if (this.prevRxd && !rxd) { this.rxK = 0; this.rxPhase = 0; this.rxShift = 0; }   // 起始位元的下降緣
+      else if (this.uartRxQueue.length && !(this.sfr[SCON_I] & SCON_RI)) { this.rxVirtual = this.uartRxQueue.shift(); this.rxPhase = 0; }
+    } else {
+      this.rxPhase += dt;
+      // 在位元的正中央取樣。Mode 2 一位才 2.67 個機械週期，有的位元只有 2 週期長，
+      // 無條件進位會剛好踩到下一位的邊緣，所以提早一格（Mode 1/3 一位 13 週期以上，不需要）。
+      if (this.rxPhase >= this.rxK + 0.5 - (mode === 2 ? dt : 0)) {
+        if (this.rxK === 0) { if (rxd) this.rxK = -2; }   // 起始位元中央又變回 1：雜訊，不算
+        else if (this.rxK <= 8) this.rxShift |= rxd << (this.rxK - 1);
+        else { this.uartRxDone(this.rxShift, rxd); this.rxK = -2; }   // 第 9 位：Mode 1 是停止位元，Mode 2/3 是 TB8
+        this.rxK++;
       }
     }
-    const scon = this.sfr[SFR.SCON - 0x80];
-    if (scon & SCON_REN) {
-      if (this.uartRxCountdown > 0) {
-        if (--this.uartRxCountdown === 0) {
-          this.sfr[SFR.SBUF - 0x80] = this.uartRxShift;
-          this.sfr[SFR.SCON - 0x80] |= SCON_RI;
-        }
-      } else if (this.uartRxQueue.length && !(scon & SCON_RI)) {
-        this.uartRxShift = this.uartRxQueue.shift();
-        const mode = scon >> 6;
-        const bits = mode === 0 ? 8 : (mode === 1 ? 10 : 11);
-        this.uartRxCountdown = this.uartBitCycles() * bits;
+    this.prevRxd = rxd;
+  }
+
+  // 收完一筆：RI 還沒被清、或 SM2=1 時第 9 位是 0，這筆就丟掉（跟真的晶片一樣）
+  uartRxDone(byte, ninth) {
+    const SCON_I = SFR.SCON - 0x80;
+    const scon = this.sfr[SCON_I];
+    if ((scon & SCON_RI) || ((scon & SCON_SM2) && !ninth)) return;
+    this.sfr[SFR.SBUF - 0x80] = byte;
+    this.sfr[SCON_I] = (ninth ? scon | SCON_RB8 : scon & ~SCON_RB8) | SCON_RI;
+  }
+
+  // 除頻器進位一次，TxD 往下送一位
+  uartTxBit(mode) {
+    if (this.txPending) { this.txPending = false; this.txIdx = 0; this.bus.setAlt(3, 2); return; }
+    if (this.txIdx < 0) return;
+    this.txIdx++;
+    const i = this.txIdx, stop = mode === 1 ? 9 : 10;
+    if (i < 9) this.bus.setAlt(3, (this.txByte >> (i - 1)) & 1 ? 0 : 2);
+    else if (i < stop) this.bus.setAlt(3, this.txNinth ? 0 : 2);
+    else if (i === stop) {
+      this.bus.setAlt(3, 0);
+      this.sfr[SFR.SCON - 0x80] |= SCON_TI;
+      if (this.onUartTx) this.onUartTx(this.txByte);
+    } else this.txIdx = -1;
+  }
+
+  // Mode 0：一個機械週期一位。TxD 先低後高，外部 IC 在升緣動作
+  uartMode0(scon) {
+    const SCON_I = SFR.SCON - 0x80;
+    if (this.m0Tx > 0) {
+      const lo = (this.m0Byte >> (8 - this.m0Tx)) & 1 ? 0 : 1;
+      this.bus.setAlt(3, lo | 2);
+      this.bus.setAlt(3, lo);
+      if (--this.m0Tx === 0) {
+        this.bus.setAlt(3, 0);
+        this.sfr[SCON_I] |= SCON_TI;
+        if (this.onUartTx) this.onUartTx(this.m0Byte);
       }
+      return;
+    }
+    if (!(scon & SCON_REN)) { this.m0Rx = 0; return; }
+    if (this.m0Rx === 0) {
+      if (scon & SCON_RI) return;      // REN=1 且 RI=0 就開始收，所以收完不把 RI 清掉就不會再收
+      this.m0Rx = 8; this.m0Shift = 0;
+    }
+    this.m0Shift |= (this.bus.pins[3] & 1) << (8 - this.m0Rx);   // 先取樣，再給升緣
+    this.bus.setAlt(3, 2);
+    this.bus.setAlt(3, 0);
+    if (--this.m0Rx === 0) {
+      this.sfr[SFR.SBUF - 0x80] = this.m0Shift;
+      this.sfr[SCON_I] |= SCON_RI;
     }
   }
 
