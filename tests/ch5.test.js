@@ -1,5 +1,6 @@
 // 快學 8051 第 5 章（串列埠）的課本實驗與思考題，在模擬器上跑起來要跟課本說的一樣。
 // 串列埠是位元級的：74164、74165、短路、第二塊板子都是靠 P3.0/P3.1 的電位在動。
+// 「左移、右移」以板子上看到的方向為準：P1.0(DS1) 在最左邊，所以左移 = RR A（見 tests/direction.test.js）。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -86,7 +87,7 @@ test('5-4-2 74164：Q 輸出跟開關一樣，D0 在 QH、D7 在 QA', () => {
   for (let i = 1; i < 8; i++) assert.ok(d[i] < d[0] / 3, `DS${i + 1} 只能微亮（移位時的殘影），亮度 ${d[i]}`);
 });
 
-test('5-4-2T 74164 單燈左移：DS1 → DS2 → … 每 0.1 秒一格', () => {
+test('5-4-2T 74164 單燈左移：DS8 → DS7 → … 每 0.1 秒往左一格', () => {
   const s = simOf('CH5-4-2T 74164單燈左移.asm');
   const seq = [];
   for (let t = 0; t < 900; t += 10) {
@@ -94,8 +95,8 @@ test('5-4-2T 74164 單燈左移：DS1 → DS2 → … 每 0.1 秒一格', () => 
     const q = s.serial.q164;                         // bit0 = QA … bit7 = QH；DS1 = QH
     if (seq[seq.length - 1] !== q) seq.push(q);
   }
-  // 依序亮 QH(DS1)、QG、…、QA(DS8)，再回到 QH
-  const want = [0x7F, 0xBF, 0xDF, 0xEF, 0xF7, 0xFB, 0xFD, 0xFE, 0x7F];
+  // 依序亮 QA(DS8，最右)、QB、…、QH(DS1，最左)，再回到 QA
+  const want = [0xFE, 0xFD, 0xFB, 0xF7, 0xEF, 0xDF, 0xBF, 0x7F, 0xFE];
   assert.ok(inOrder(seq, want), '順序不對：' + seq.map(v => v.toString(16)).join(' '));
 });
 
@@ -167,12 +168,12 @@ test('5-4-4T 第一塊的 P2.0 切換第二塊 LED；第二塊的 P2.0/P2.1 叫�
   assert.equal(P1(b), 0xFF, '再按一下：第二塊全滅');
   tap(a, 2);
   assert.equal(P1(b), 0x00, '再按又全亮');
-  // 第二塊 P2.0：第一塊單燈左移
+  // 第二塊 P2.0：第一塊單燈左移，板子上由 DS8(右) 往 DS1(左)
   tap(b, 2);
-  assert.ok(inOrder(watchP1(a, 900), [0xFD, 0xFB, 0xF7, 0xEF, 0xDF, 0xBF, 0x7F, 0xFE]), '第一塊要左移');
-  // 第二塊 P2.1：第一塊單燈右移
+  assert.ok(inOrder(watchP1(a, 900), [0xBF, 0xDF, 0xEF, 0xF7, 0xFB, 0xFD, 0xFE, 0x7F]), '第一塊要往左跑');
+  // 第二塊 P2.1：第一塊單燈右移，板子上由 DS1(左) 往 DS8(右)
   tap(b, 3);
-  assert.ok(inOrder(watchP1(a, 900), [0x7F, 0xBF, 0xDF, 0xEF, 0xF7, 0xFB, 0xFD, 0xFE]), '第一塊要右移');
+  assert.ok(inOrder(watchP1(a, 900), [0xFD, 0xFB, 0xF7, 0xEF, 0xDF, 0xBF, 0x7F, 0xFE]), '第一塊要往右跑');
   assert.equal(P1(b), 0x00, '第二塊的 LED 不受影響');
 });
 
@@ -208,9 +209,9 @@ test('5-4-5T PC 下命令：1 閃爍、2 左移、3 右移、0 全滅，字元�
   s.serial.pcSend(1);
   assert.ok(inOrder(watchP1(s, 500), [0x00, 0xFF, 0x00, 0xFF]), '命令 1：8 燈閃爍');
   s.serial.pcSend(0x32);                             // 字元 '2'
-  assert.ok(inOrder(watchP1(s, 500), [0xFE, 0xFD, 0xFB, 0xF7]), "字元 '2'：單燈左移");
+  assert.ok(inOrder(watchP1(s, 500), [0x7F, 0xBF, 0xDF, 0xEF]), "字元 '2'：單燈往左跑");
   s.serial.pcSend(3);
-  assert.ok(inOrder(watchP1(s, 500), [0xFE, 0x7F, 0xBF, 0xDF]), '命令 3：單燈右移');
+  assert.ok(inOrder(watchP1(s, 500), [0xFE, 0xFD, 0xFB, 0xF7]), '命令 3：單燈往右跑');
   s.serial.pcSend(0);
   runMs(s, 300);
   assert.equal(P1(s), 0xFF, '命令 0：全滅');
