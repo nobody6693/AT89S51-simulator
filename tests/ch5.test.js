@@ -155,26 +155,72 @@ test('5-4-4 雙機互傳：兩塊同時改開關，各自顯示對方的值', ()
   }
 });
 
-test('5-4-4T 第一塊的 P2.0 切換第二塊 LED；第二塊的 P2.0/P2.1 叫第一塊左移/右移', () => {
+// 第一塊的程式跑在 a、第二塊跑在 b（a.serial.peer）；時間由 a 帶著走
+function board44T() {
   const a = simOf('CH5-4-4T 第一塊P20控制對方LED.asm');
   const b = a.serial.peer;
-  const tap = (who, i) => { who.buttons.press(i, 1); runMs(a, 30); who.buttons.press(i, 0); runMs(a, 30); };
+  const tap = (who, i, ms = 30) => { who.buttons.press(i, 1); runMs(a, ms); who.buttons.press(i, 0); runMs(a, 30); };
   runMs(a, 30);
+  return { a, b, tap };
+}
+const LEFT_ROUND = [0x7F, 0xBF, 0xDF, 0xEF, 0xF7, 0xFB, 0xFD, 0xFE];    // P1.7 → P1.0，板子上由右往左
+const RIGHT_ROUND = [0xFE, 0xFD, 0xFB, 0xF7, 0xEF, 0xDF, 0xBF, 0x7F];   // P1.0 → P1.7，板子上由左往右
+
+test('5-4-4T 第一塊的 P2.0：按一下切換第二塊 LED 全亮、全滅，按著不放不會一直切', () => {
+  const { a, b, tap } = board44T();
   assert.equal(P1(b), 0xFF, '第二塊一開始不亮');
   assert.equal(P1(a), 0xFF, '第一塊一開始不亮');
-  tap(a, 2);                                         // 第一塊 PB3 = P2.0
+  tap(a, 2);
   assert.equal(P1(b), 0x00, '按一下：第二塊全亮');
   tap(a, 2);
   assert.equal(P1(b), 0xFF, '再按一下：第二塊全滅');
-  tap(a, 2);
-  assert.equal(P1(b), 0x00, '再按又全亮');
-  // 第二塊 P2.0：第一塊單燈左移，板子上由 DS8(右) 往 DS1(左)
-  tap(b, 2);
-  assert.ok(inOrder(watchP1(a, 900), [0xBF, 0xDF, 0xEF, 0xF7, 0xFB, 0xFD, 0xFE, 0x7F]), '第一塊要往左跑');
-  // 第二塊 P2.1：第一塊單燈右移，板子上由 DS1(左) 往 DS8(右)
-  tap(b, 3);
-  assert.ok(inOrder(watchP1(a, 900), [0xFD, 0xFB, 0xF7, 0xEF, 0xDF, 0xBF, 0x7F, 0xFE]), '第一塊要往右跑');
-  assert.equal(P1(b), 0x00, '第二塊的 LED 不受影響');
+  a.buttons.press(2, 1); runMs(a, 500);
+  assert.equal(P1(b), 0x00, '按著 0.5 秒：只切一次，停在全亮');
+  a.buttons.press(2, 0); runMs(a, 30);
+  assert.equal(P1(a), 0xFF, '第一塊自己的 LED 不受影響');
+});
+
+test('5-4-4T 第二塊點一下：第一塊跑一輪 8 個位置，每格 200ms，跑完熄滅，不會重複', () => {
+  const { a, b, tap } = board44T();
+  tap(b, 2);                                         // 第二塊 P2.0：左移
+  const changes = [];
+  let last = P1(a), t = 60;
+  for (let i = 0; i < 1900; i++) {
+    runMs(a, 1); t++;
+    if (P1(a) !== last) { last = P1(a); changes.push({ v: last, t }); }
+  }
+  assert.deepEqual(changes.map(c => c.v), [...LEFT_ROUND.slice(1), 0xFF], '左移：7F 之後依序走到 FE，再熄滅');
+  for (let i = 1; i < changes.length; i++) {
+    const dt = changes[i].t - changes[i - 1].t;
+    assert.ok(Math.abs(dt - 200) <= 2, `每格要 200ms，實際 ${dt}ms`);
+  }
+  tap(b, 3);                                         // 第二塊 P2.1：右移
+  assert.equal(P1(a), RIGHT_ROUND[0], '右移從最左邊的 P1.0 開始');
+  assert.deepEqual(watchP1(a, 1700), [...RIGHT_ROUND, 0xFF], '右移：從 FE 依序走到 7F，再熄滅');
+  assert.equal(P1(b), 0xFF, '第二塊的 LED 不受影響');
+});
+
+test('5-4-4T 跑到一半的命令忽略，但第一塊的切換開關照常能用', () => {
+  const { a, b, tap } = board44T();
+  tap(b, 2);                                         // 開始左移
+  runMs(a, 300);
+  tap(b, 3);                                         // 跑到一半按右移：要被忽略
+  tap(a, 2);                                         // 跑到一半切換第二塊：要有效
+  assert.equal(P1(b), 0x00, '第二塊要全亮，主迴圈沒有被動畫卡住');
+  const seq = [P1(a), ...watchP1(a, 1400)];
+  assert.ok(inOrder(seq, [0xF7, 0xFB, 0xFD, 0xFE, 0xFF]), '要繼續往左走完：' + seq.map(v => v.toString(16)).join(' '));
+  assert.ok(!seq.includes(0xBF), '不能換方向或從頭開始');
+});
+
+test('5-4-4T 第二塊按住不放：跑完一輪馬上接下一輪', () => {
+  const { a, b } = board44T();
+  b.buttons.press(2, 1);
+  const seq = watchP1(a, 3300, 2);
+  b.buttons.press(2, 0);
+  const firstRound = seq.indexOf(0x7F);
+  assert.ok(firstRound >= 0, '第一輪要開始');
+  // 第一輪的尾巴熄滅不到 10ms 就被下一筆命令接上，取樣不一定看得到 FF，所以不比它
+  assert.ok(inOrder(seq, [...LEFT_ROUND, ...LEFT_ROUND]), '要連跑兩輪：' + seq.map(v => v.toString(16)).join(' '));
 });
 
 test('5-4-4T 換載入第二塊的檔案，等於兩塊板子對調', () => {
