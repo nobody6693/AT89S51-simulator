@@ -23,7 +23,7 @@ P3.0 與 P3.1 短路、第二塊 KT89S51、經 MAX232 接 PC。串列埠四種�
 ## 開發
 
 ```bash
-npm test                        # 130 項
+npm test                        # 133 項
 node tools/build-single.mjs     # 打包成單一 HTML（dist/ 與 index.html）
 ```
 

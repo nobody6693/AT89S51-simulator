@@ -10,6 +10,7 @@
 ; 怎麼從範例（CH4-7-1 外部中斷LED左右移）改成這一題：
 ; 只加一行：在 MOV IE 之後加 SETB PX1，把 INT1 設成高優先等級。
 ; 其餘程式一行都沒動。
+; 方向注意：LEFT 用 RL A，板子上是由左往右跑；RIGHT 用 RR A，板子上是由右往左跑（原因見範例檔頭）。
 ; 電路、接線與原理都跟範例相同，請先看範例檔頭的說明；改過的地方在程式裡用【改】【加】標出來。
 ;
 LED	EQU	P1		;LED 輸出埠
@@ -58,12 +59,12 @@ LEFT:	PUSH	ACC		;保住主程式的 A
 	SETB	RS0
 	MOV	R4,#2		;嗶兩聲
 	CALL	BEEP
-	MOV	A,#0FEH		;左移樣板 11111110：最右邊那顆亮
+	MOV	A,#0FEH		;課本的左移樣板 11111110：P1.0 亮（板子最左邊那顆）
 	MOV	R0,#7		;移 7 步
 L_OUT:	MOV	LED,A		;輸出
 	MOV	R5,#200
 	CALL	DELAY500us	;停 0.1 秒
-	RL	A		;左旋：亮的那顆往左跑
+	RL	A		;左旋：往高位元走，板子上是往右跑
 	DJNZ	R0,L_OUT	;7 步走完
 	POP	PSW		;還原（暫存器庫跟著回到 RB0）
 	POP	ACC
@@ -75,12 +76,12 @@ RIGHT:	PUSH	ACC
 	SETB	RS1
 	MOV	R4,#2		;嗶兩聲
 	CALL	BEEP
-	MOV	A,#07FH		;右移樣板 01111111：最左邊那顆亮
+	MOV	A,#07FH		;課本的右移樣板 01111111：P1.7 亮（板子最右邊那顆）
 	MOV	R0,#7		;移 7 步
 R_OUT:	MOV	LED,A
 	MOV	R5,#200
 	CALL	DELAY500us	;停 0.1 秒
-	RR	A		;右旋：亮的那顆往右跑
+	RR	A		;右旋：往低位元走，板子上是往左跑
 	DJNZ	R0,R_OUT
 	POP	PSW
 	POP	ACC

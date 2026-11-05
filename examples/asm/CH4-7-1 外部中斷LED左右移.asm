@@ -9,6 +9,8 @@
 ;   按 PB1 → INT0 中斷 → 跳到 03H → LEFT 副程式：嗶兩聲，LED 單燈左移 7 步
 ;   按 PB2 → INT1 中斷 → 跳到 13H → RIGHT 副程式：嗶兩聲，LED 單燈右移 7 步
 ;   做完 RETI 回到主程式，繼續反相。
+;   方向注意：程式照課本，「左移」指暫存器往高位元移（RL A）。板子上 P1.0 = DS1 在最左邊，
+;   所以 LEFT 的燈在板子上其實是由左往右跑，RIGHT 才是由右往左跑，跟名稱相反。
 ;   IE = 10000101B：EA=1 總開關、EX1=1、EX0=1。IT0/IT1 沒設 → 低態觸發，
 ;   所以按著不放的話，副程式一結束又會再進一次。
 ;
@@ -63,12 +65,12 @@ LEFT:	PUSH	ACC		;保住主程式的 A
 	SETB	RS0
 	MOV	R4,#2		;嗶兩聲
 	CALL	BEEP
-	MOV	A,#0FEH		;左移樣板 11111110：最右邊那顆亮
+	MOV	A,#0FEH		;課本的左移樣板 11111110：P1.0 亮（板子最左邊那顆）
 	MOV	R0,#7		;移 7 步
 L_OUT:	MOV	LED,A		;輸出
 	MOV	R5,#200
 	CALL	DELAY500us	;停 0.1 秒
-	RL	A		;左旋：亮的那顆往左跑
+	RL	A		;左旋：往高位元走，板子上是往右跑
 	DJNZ	R0,L_OUT	;7 步走完
 	POP	PSW		;還原（暫存器庫跟著回到 RB0）
 	POP	ACC
@@ -80,12 +82,12 @@ RIGHT:	PUSH	ACC
 	SETB	RS1
 	MOV	R4,#2		;嗶兩聲
 	CALL	BEEP
-	MOV	A,#07FH		;右移樣板 01111111：最左邊那顆亮
+	MOV	A,#07FH		;課本的右移樣板 01111111：P1.7 亮（板子最右邊那顆）
 	MOV	R0,#7		;移 7 步
 R_OUT:	MOV	LED,A
 	MOV	R5,#200
 	CALL	DELAY500us	;停 0.1 秒
-	RR	A		;右旋：亮的那顆往右跑
+	RR	A		;右旋：往低位元走，板子上是往左跑
 	DJNZ	R0,R_OUT
 	POP	PSW
 	POP	ACC

@@ -88,3 +88,49 @@ test('2-7-3 思考題：兩聲在最右邊、一聲在最左邊', () => {
   // 最右邊那組是兩聲（比較長），最左邊那組是一聲
   assert.ok(groups[1].t - groups[0].t > 1.2e6, '兩組之間要隔著整段 LED 移動');
 });
+
+// 2-7-6 思考題：開關選狀態。回傳燈的位置序列（0 = DS1 最左，7 = DS8 最右）
+function run276(s, state, steps) {
+  for (let i = 0; i < 8; i++) s.dip.set(i, (state >> i) & 1);   // 開關 ON 讀 0，反相後就是狀態
+  const out = [];
+  let last = s.bus.latch[1];
+  const t0 = s.cpu.cycles;
+  while (s.cpu.cycles - t0 < 3e6 && out.length < steps) {
+    s.cpu.run(200);
+    const v = s.bus.latch[1];
+    if (v !== last) { last = v; const p = leftmostLit(v); if (p !== null) out.push(p); }
+  }
+  return out;
+}
+function sim276() {
+  const src = readFileSync(new URL('../examples/asm/CH2-7-6T 左移右移霹靂燈.asm', import.meta.url), 'utf-8');
+  const r = assemble(src, { codeSize: 4096 });
+  assert.ok(r.ok, JSON.stringify(r.diagnostics));
+  const s = new Sim();
+  s.load({ hex: r.hex, lines: r.lines, symbols: r.symbols });
+  return s;
+}
+
+test('2-7-6 思考題：狀態 1 往畫面左邊跑，狀態 2 往畫面右邊跑', () => {
+  const left = run276(sim276(), 1, 7);
+  assert.deepEqual(left, [7, 6, 5, 4, 3, 2, 1], `左移要由 DS8 往 DS1，實際 ${left.join('→')}`);
+  const right = run276(sim276(), 2, 3);
+  assert.equal(right.length, 3, '狀態 2 燈要會動');
+  assert.ok(goesRight(right.slice(1)), `右移要往 DS8，實際 ${right.join('→')}`);
+});
+
+test('2-7-6 思考題：狀態 3 霹靂燈先往左到底，再折返往右到底', () => {
+  const p = run276(sim276(), 3, 15);
+  assert.deepEqual(p, [7, 6, 5, 4, 3, 2, 1, 0, 1, 2, 3, 4, 5, 6, 7], `實際 ${p.join('→')}`);
+});
+
+test('2-7-6 思考題：霹靂燈跑到一半切到別的狀態，判斷不會被 CJNE 留下的 CY 弄錯', () => {
+  const s = sim276();
+  run276(s, 3, 3);                                 // 往左走到一半，CJNE 剛留下 CY=1
+  const p = run276(s, 1, 4);
+  assert.equal(p.length, 4, '切到狀態 1 燈要繼續動，不能卡住');
+  assert.ok(goesLeft(p), `切到狀態 1 要繼續往左移，實際 ${p.join('→')}`);
+  const q = run276(s, 2, 4);
+  assert.equal(q.length, 4, '切到狀態 2 燈要繼續動，不能卡住');
+  assert.ok(goesRight(q.slice(1)), `切到狀態 2 要往右移，實際 ${q.join('→')}`);
+});
