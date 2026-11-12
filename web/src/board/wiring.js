@@ -89,6 +89,11 @@ export const EXAMPLE_WIRING = {
   'CH5-4-4T 第一塊P20控制對方LED.asm': { enabled: {}, serial: 'board2', peerProgram: 'CH5-4-4T 第二塊P20P21控制對方移位.asm' },
   'CH5-4-4T 第二塊P20P21控制對方移位.asm': { enabled: {}, serial: 'board2', peerProgram: 'CH5-4-4T 第一塊P20控制對方LED.asm' },
   'CH5-4-5': { enabled: {}, serial: 'pc' },
+  // 課本第 6 章（音樂播放器）：只用主板的蜂鳴器、LED、指撥開關，琴鍵 / 選歌鍵是杜邦線把 P2.x 碰 GND
+  //   （模擬器裡用電源軌跳線：點 GND 再點 P2.x），KDM+ 一條線都不用接
+  'CH6-5-1': { enabled: {} },
+  'CH6-5-2': { enabled: {} },
+  'CH6-5-3': { enabled: {} },
 };
 export function wiringForExample(name) {
   if (EXAMPLE_WIRING[name]) return EXAMPLE_WIRING[name];
